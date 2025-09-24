@@ -10,8 +10,9 @@ async function bootstrap() {
     origin: [
       'https://milloin.xyz',
       'http://localhost:3000',
-      'http://localhost:5173',
+      'http://localhost:4200',
       'http://localhost:4173',
+      'http://localhost:5173',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
