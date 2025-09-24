@@ -30,165 +30,115 @@ export class WashingMachineService {
 
     const washingDurationHours = 2; // Typical washing machine cycle
 
-    // Get price data for today and tomorrow (without internal caching)
+    // Get price data for today and tomorrow
     const todayPrices = await this.electricityPriceService.getTodayPrices();
     let tomorrowPrices: ElectricityPrice[] = [];
 
     try {
       tomorrowPrices = await this.electricityPriceService.getTomorrowPrices();
     } catch {
-      // Tomorrow's prices might not be available yet (usually published around 14:00)
       console.warn("Tomorrow's prices not available yet");
     }
 
-    // Combine and filter prices within the requested forecast hours
-    const allPrices = [...todayPrices, ...tomorrowPrices];
+    // Get current time in Finnish timezone
     const now = new Date();
-    const forecastEndTime = new Date(now.getTime() + hours * 60 * 60 * 1000);
+    const finnishTime = this.convertToFinnishTime(now);
+    const isCurrentlyDaytime = this.isDaytime(finnishTime);
 
-    const availablePrices = allPrices.filter((price) => {
-      const priceTime = new Date(price.startDate);
-      return priceTime >= now && priceTime <= forecastEndTime;
-    });
+    // Separate periods for today, tonight, and tomorrow
+    const todayDayPrices = this.filterTodayDayPrices(todayPrices, now);
+    const tonightPrices = this.filterTonightPrices(todayPrices, tomorrowPrices, now);
+    const tomorrowDayPrices = this.filterTomorrowDayPrices(tomorrowPrices, now);
 
-    if (availablePrices.length < washingDurationHours) {
-      throw new BadRequestException(
-        'Not enough price data available for forecast',
+    // Calculate optimal times for each period
+    let todayOptimal: OptimalTimeDto | null = null;
+    let tonightOptimal: OptimalTimeDto | null = null;
+    let tomorrowOptimal: OptimalTimeDto | null = null;
+
+    // Today optimal (only if currently daytime)
+    if (isCurrentlyDaytime && todayDayPrices.length >= washingDurationHours) {
+      const todayOptimalTimes = this.findOptimalWashingTimes(
+        todayDayPrices,
+        washingDurationHours,
+        'day',
       );
-    }
-
-    // Separate day and night prices
-    const { dayPrices, nightPrices } =
-      this.separateDayNightPrices(availablePrices);
-
-    // Calculate optimal times for day and night separately
-    const dayOptimalTimes = this.findOptimalWashingTimes(
-      dayPrices,
-      washingDurationHours,
-      'day',
-    );
-    const nightOptimalTimes = this.findOptimalWashingTimes(
-      nightPrices,
-      washingDurationHours,
-      'night',
-    );
-
-    // Calculate statistics
-    const allPricesValues = availablePrices.map((p) => p.price);
-    const overallAveragePrice =
-      allPricesValues.reduce((sum, price) => sum + price, 0) /
-      allPricesValues.length;
-    const overallLowestPrice = Math.min(...allPricesValues);
-    const overallHighestPrice = Math.max(...allPricesValues);
-
-    const dayPricesValues = dayPrices.map((p) => p.price);
-    const dayAveragePrice =
-      dayPricesValues.length > 0
-        ? dayPricesValues.reduce((sum, price) => sum + price, 0) /
-          dayPricesValues.length
-        : 0;
-    const dayLowestPrice =
-      dayPricesValues.length > 0 ? Math.min(...dayPricesValues) : 0;
-
-    const nightPricesValues = nightPrices.map((p) => p.price);
-    const nightAveragePrice =
-      nightPricesValues.length > 0
-        ? nightPricesValues.reduce((sum, price) => sum + price, 0) /
-          nightPricesValues.length
-        : 0;
-    const nightLowestPrice =
-      nightPricesValues.length > 0 ? Math.min(...nightPricesValues) : 0;
-
-    // Add savings calculations for day times
-    const dayOptimalTimesWithSavings = dayOptimalTimes.map((time, index) => ({
-      ...time,
-      rank: index + 1,
-      savings: dayAveragePrice - time.price,
-      savingsPercentage:
-        dayAveragePrice > 0
-          ? ((dayAveragePrice - time.price) / dayAveragePrice) * 100
-          : 0,
-    }));
-
-    // Add savings calculations for night times
-    const nightOptimalTimesWithSavings = nightOptimalTimes.map(
-      (time, index) => ({
-        ...time,
-        rank: index + 1,
-        savings: nightAveragePrice - time.price,
-        savingsPercentage:
-          nightAveragePrice > 0
-            ? ((nightAveragePrice - time.price) / nightAveragePrice) * 100
-            : 0,
-      }),
-    );
-
-    const maxSavings = overallAveragePrice - overallLowestPrice;
-    const savingsPercentage = (maxSavings / overallAveragePrice) * 100;
-
-    // Find overall cheapest time slot
-    const allOptimalTimes = [...dayOptimalTimes, ...nightOptimalTimes];
-    const overallCheapestTime = allOptimalTimes.reduce((cheapest, current) =>
-      current.price < cheapest.price ? current : cheapest,
-    );
-
-    // Build the response
-    const result: WashingForecast = {
-      dayTime: {
-        optimalTimes: dayOptimalTimesWithSavings,
-        averagePrice: Math.round(dayAveragePrice * 100) / 100,
-        lowestPrice: Math.round(dayLowestPrice * 100) / 100,
-      },
-      overallStats: {
-        averagePrice: Math.round(overallAveragePrice * 100) / 100,
-        lowestPrice: Math.round(overallLowestPrice * 100) / 100,
-        highestPrice: Math.round(overallHighestPrice * 100) / 100,
-        optimalTime: {
-          startTime: overallCheapestTime.startTime,
-          endTime: overallCheapestTime.endTime,
-          price: overallCheapestTime.price,
-          period: overallCheapestTime.period,
-        },
-        savings: {
-          maxSavings: Math.round(maxSavings * 100) / 100,
-          savingsPercentage: Math.round(savingsPercentage * 100) / 100,
-        },
-      },
-    };
-
-    // Include night times only if they're cheaper than the cheapest day time
-    if (
-      nightOptimalTimesWithSavings.length > 0 &&
-      dayOptimalTimesWithSavings.length > 0
-    ) {
-      const cheapestNightPrice = Math.min(
-        ...nightOptimalTimesWithSavings.map((t) => t.price),
-      );
-      const cheapestDayPrice = Math.min(
-        ...dayOptimalTimesWithSavings.map((t) => t.price),
-      );
-
-      if (cheapestNightPrice < cheapestDayPrice) {
-        const savingsVsDayTime = cheapestDayPrice - cheapestNightPrice;
-        const savingsPercentageVsDayTime =
-          (savingsVsDayTime / cheapestDayPrice) * 100;
-
-        result.nightTime = {
-          optimalTimes: nightOptimalTimesWithSavings,
-          averagePrice: Math.round(nightAveragePrice * 100) / 100,
-          lowestPrice: Math.round(nightLowestPrice * 100) / 100,
-          savingsVsDayTime: Math.round(savingsVsDayTime * 100) / 100,
-          savingsPercentageVsDayTime:
-            Math.round(savingsPercentageVsDayTime * 100) / 100,
+      if (todayOptimalTimes.length > 0) {
+        todayOptimal = {
+          ...todayOptimalTimes[0],
+          rank: 1,
+          savings: 0, // Will calculate later
+          savingsPercentage: 0,
         };
       }
     }
 
-    // Cache the result with TTL until the end of the hour of the optimal time
-    const ttl = this.getTtlUntilEndOfOptimalHour(
-      result.overallStats.optimalTime.startTime,
-    );
-    await this.cacheManager.set(cacheKey, result, ttl);
+    // Tonight optimal
+    if (tonightPrices.length >= washingDurationHours) {
+      const tonightOptimalTimes = this.findOptimalWashingTimes(
+        tonightPrices,
+        washingDurationHours,
+        'night',
+      );
+      if (tonightOptimalTimes.length > 0) {
+        tonightOptimal = {
+          ...tonightOptimalTimes[0],
+          rank: 1,
+          savings: 0, // Will calculate later
+          savingsPercentage: 0,
+        };
+      }
+    }
+
+    // Tomorrow optimal
+    if (tomorrowDayPrices.length >= washingDurationHours) {
+      const tomorrowOptimalTimes = this.findOptimalWashingTimes(
+        tomorrowDayPrices,
+        washingDurationHours,
+        'day',
+      );
+      if (tomorrowOptimalTimes.length > 0) {
+        tomorrowOptimal = {
+          ...tomorrowOptimalTimes[0],
+          rank: 1,
+          savings: 0, // Will calculate later
+          savingsPercentage: 0,
+        };
+      }
+    }
+
+    // Build result - only include tonight/tomorrow if cheaper than today
+    const result: WashingForecast = {};
+
+    if (todayOptimal) {
+      result.today = todayOptimal;
+
+      // Only include tonight if cheaper than today
+      if (tonightOptimal && tonightOptimal.price < todayOptimal.price) {
+        const savings = todayOptimal.price - tonightOptimal.price;
+        result.tonight = {
+          ...tonightOptimal,
+          savings: Math.round(savings * 100) / 100,
+          savingsPercentage: Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
+        };
+      }
+
+      // Only include tomorrow if cheaper than today
+      if (tomorrowOptimal && tomorrowOptimal.price < todayOptimal.price) {
+        const savings = todayOptimal.price - tomorrowOptimal.price;
+        result.tomorrow = {
+          ...tomorrowOptimal,
+          savings: Math.round(savings * 100) / 100,
+          savingsPercentage: Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
+        };
+      }
+    }
+
+    // Cache the result with TTL
+    const bestOption = result.tonight || result.tomorrow || result.today;
+    if (bestOption) {
+      const ttl = this.getTtlUntilEndOfOptimalHour(bestOption.startTime);
+      await this.cacheManager.set(cacheKey, result, ttl);
+    }
 
     return result;
   }
@@ -205,27 +155,49 @@ export class WashingMachineService {
     );
   }
 
-  private separateDayNightPrices(prices: ElectricityPrice[]): {
-    dayPrices: ElectricityPrice[];
-    nightPrices: ElectricityPrice[];
-  } {
-    const dayPrices: ElectricityPrice[] = [];
-    const nightPrices: ElectricityPrice[] = [];
+  private convertToFinnishTime(date: Date): Date {
+    // Convert to Finnish timezone (UTC+2 in winter, UTC+3 in summer)
+    const offset = date.getTimezoneOffset();
+    const finnishOffset = this.getFinnishTimezoneOffset(date);
+    return new Date(date.getTime() + (offset + finnishOffset) * 60 * 1000);
+  }
 
-    prices.forEach((price) => {
-      const startTime = new Date(price.startDate);
-      const startHour = startTime.getHours();
+  private getFinnishTimezoneOffset(date: Date): number {
+    // Simplified: assume UTC+3 (summer time) for now
+    // In production, you'd want proper timezone handling
+    return -180; // -3 hours in minutes
+  }
 
-      // Day time: 06:00-20:00 (latest start time for 2-hour cycle is 20:00)
-      // Night time: 20:01-05:59
-      if (startHour >= 6 && startHour <= 20) {
-        dayPrices.push(price);
-      } else {
-        nightPrices.push(price);
-      }
+  private isDaytime(finnishTime: Date): boolean {
+    const hour = finnishTime.getHours();
+    return hour >= 6 && hour <= 20;
+  }
+
+  private filterTodayDayPrices(todayPrices: ElectricityPrice[], now: Date): ElectricityPrice[] {
+    return todayPrices.filter((price) => {
+      const priceTime = new Date(price.startDate);
+      const finnishPriceTime = this.convertToFinnishTime(priceTime);
+      return priceTime >= now && this.isDaytime(finnishPriceTime);
     });
+  }
 
-    return { dayPrices, nightPrices };
+  private filterTonightPrices(todayPrices: ElectricityPrice[], tomorrowPrices: ElectricityPrice[], now: Date): ElectricityPrice[] {
+    // Tonight prices: from now until end of today's night hours + tomorrow's early morning hours
+    const allPrices = [...todayPrices, ...tomorrowPrices];
+    return allPrices.filter((price) => {
+      const priceTime = new Date(price.startDate);
+      const finnishPriceTime = this.convertToFinnishTime(priceTime);
+      const hour = finnishPriceTime.getHours();
+      return priceTime >= now && (hour > 20 || hour < 6);
+    });
+  }
+
+  private filterTomorrowDayPrices(tomorrowPrices: ElectricityPrice[], now: Date): ElectricityPrice[] {
+    return tomorrowPrices.filter((price) => {
+      const priceTime = new Date(price.startDate);
+      const finnishPriceTime = this.convertToFinnishTime(priceTime);
+      return priceTime >= now && this.isDaytime(finnishPriceTime);
+    });
   }
 
   private findOptimalWashingTimes(

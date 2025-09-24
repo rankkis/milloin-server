@@ -24,13 +24,16 @@ export class WashingMachineController {
       **How it works:**
       - Fetches real-time electricity prices from spot-hinta.fi API (Nord Pool data)
       - Calculates optimal 2-hour consecutive time slots for washing machine cycles
-      - Separates recommendations into day (06:00-20:00) and night (20:01-05:59) periods
-      - Night times are only included if they're cheaper than day times
-      - Results are cached until the end of the hour when the optimal time starts
+      - Returns separate recommendations for today, tonight, and tomorrow
+      - Only shows options that are available and cost-effective
 
-      **Time Periods:**
-      - **Day Time**: 06:00-20:00 (latest start time allows 2-hour cycle to finish by 22:00)
-      - **Night Time**: 20:01-05:59 (only shown if cheaper than day options)
+      **Response Structure:**
+      - **today**: Only included if currently daytime (06:00-20:00 Finnish time)
+      - **tonight**: Only included if cheaper than today's optimal time (20:01-05:59)
+      - **tomorrow**: Only included if cheaper than today's optimal time (06:00-20:00)
+
+      **Pricing Logic:**
+      All recommendations are compared against today's optimal daytime price. Only cheaper alternatives are included.
 
       **Caching:**
       Data is cached with dynamic TTL that expires at the end of the hour when the optimal time starts,
@@ -51,7 +54,7 @@ export class WashingMachineController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Successful forecast response with optimal washing times. Returns optimal 2-hour washing slots separated by day (06:00-20:00) and night (20:01-05:59) periods. Night times are only included if they offer better savings than day times.',
+    description: 'Successful forecast response with optimal washing times. Returns up to 3 nullable properties: today (if daytime), tonight (if cheaper than today), and tomorrow (if cheaper than today). Each contains a single optimal 2-hour washing slot.',
     type: WashingForecastDto,
   })
   @ApiBadRequestResponse({

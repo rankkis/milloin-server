@@ -59,6 +59,7 @@ test/
 - Uses NestJS CLI for scaffolding
 - ESLint and Prettier configured for code consistency
 - Jest configured for testing with coverage support
+- Use zulu-time in dto's
 
 ## Important Reminders
 
