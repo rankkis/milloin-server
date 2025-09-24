@@ -11,9 +11,14 @@ const createNestApp = async () => {
 
     // Enable CORS for production
     app.enableCors({
-      origin: true,
+      origin: [
+        'https://milloin.xyz',
+        'https://www.milloin.xyz',
+        'https://milloin-web.vercel.app',
+      ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
+      credentials: true,
     });
 
     // Swagger configuration for production

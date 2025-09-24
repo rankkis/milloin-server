@@ -7,9 +7,15 @@ async function bootstrap() {
 
   // Enable CORS for all environments
   app.enableCors({
-    origin: true,
+    origin: [
+      'https://milloin.xyz',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:4173',
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
   });
 
   // Only configure Swagger and listen to port in non-Vercel environments
