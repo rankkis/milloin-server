@@ -53,6 +53,12 @@ test/
 └── jest-e2e.json        # E2E Jest config
 ```
 
+## Deployment Notes
+
+- Execute prettier, linter and run tests before production deployment
+- Verify that swagger documentation is updated
+- After deployment verify that the service is responding
+
 ## Development Notes
 
 - Default port: 3000 (configurable via PORT env var)
@@ -67,4 +73,3 @@ test/
 - Run `npm run test` to ensure tests pass
 - Use NestJS decorators and patterns
 - Follow existing code conventions and file structure
-- Keep swagger documentation updated

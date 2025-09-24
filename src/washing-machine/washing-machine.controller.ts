@@ -54,14 +54,17 @@ export class WashingMachineController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Successful forecast response with optimal washing times. Returns up to 3 nullable properties: today (if daytime), tonight (if cheaper than today), and tomorrow (if cheaper than today). Each contains a single optimal 2-hour washing slot.',
+    description:
+      'Successful forecast response with optimal washing times. Returns up to 3 nullable properties: today (if daytime), tonight (if cheaper than today), and tomorrow (if cheaper than today). Each contains a single optimal 2-hour washing slot.',
     type: WashingForecastDto,
   })
   @ApiBadRequestResponse({
-    description: 'Invalid request parameters. Common causes: hours parameter out of range (1-48), invalid format, or insufficient price data available for the requested forecast period.',
+    description:
+      'Invalid request parameters. Common causes: hours parameter out of range (1-48), invalid format, or insufficient price data available for the requested forecast period.',
   })
   @ApiServiceUnavailableResponse({
-    description: 'External electricity price API (spot-hinta.fi) is unavailable. This can occur when the Finnish electricity price API is down or experiencing issues.',
+    description:
+      'External electricity price API (spot-hinta.fi) is unavailable. This can occur when the Finnish electricity price API is down or experiencing issues.',
   })
   async getForecast(
     @Query('hours') hours?: string,

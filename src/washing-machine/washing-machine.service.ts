@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import {
@@ -47,7 +47,11 @@ export class WashingMachineService {
 
     // Separate periods for today, tonight, and tomorrow
     const todayDayPrices = this.filterTodayDayPrices(todayPrices, now);
-    const tonightPrices = this.filterTonightPrices(todayPrices, tomorrowPrices, now);
+    const tonightPrices = this.filterTonightPrices(
+      todayPrices,
+      tomorrowPrices,
+      now,
+    );
     const tomorrowDayPrices = this.filterTomorrowDayPrices(tomorrowPrices, now);
 
     // Calculate optimal times for each period
@@ -118,7 +122,8 @@ export class WashingMachineService {
         result.tonight = {
           ...tonightOptimal,
           savings: Math.round(savings * 100) / 100,
-          savingsPercentage: Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
+          savingsPercentage:
+            Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
         };
       }
 
@@ -128,15 +133,29 @@ export class WashingMachineService {
         result.tomorrow = {
           ...tomorrowOptimal,
           savings: Math.round(savings * 100) / 100,
-          savingsPercentage: Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
+          savingsPercentage:
+            Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
         };
       }
     }
 
-    // Cache the result with TTL
-    const bestOption = result.tonight || result.tomorrow || result.today;
-    if (bestOption) {
-      const ttl = this.getTtlUntilEndOfOptimalHour(bestOption.startTime);
+    // Cache the result with TTL based on earliest startTime
+    const availableOptions = [
+      result.today,
+      result.tonight,
+      result.tomorrow,
+    ].filter(Boolean);
+    const earliestOption =
+      availableOptions.length > 0
+        ? availableOptions.reduce((earliest, current) =>
+            new Date(current.startTime) < new Date(earliest.startTime)
+              ? current
+              : earliest,
+          )
+        : null;
+
+    if (earliestOption) {
+      const ttl = this.getTtlUntilEndOfOptimalHour(earliestOption.startTime);
       await this.cacheManager.set(cacheKey, result, ttl);
     }
 
@@ -158,11 +177,11 @@ export class WashingMachineService {
   private convertToFinnishTime(date: Date): Date {
     // Convert to Finnish timezone (UTC+2 in winter, UTC+3 in summer)
     const offset = date.getTimezoneOffset();
-    const finnishOffset = this.getFinnishTimezoneOffset(date);
+    const finnishOffset = this.getFinnishTimezoneOffset();
     return new Date(date.getTime() + (offset + finnishOffset) * 60 * 1000);
   }
 
-  private getFinnishTimezoneOffset(date: Date): number {
+  private getFinnishTimezoneOffset(): number {
     // Simplified: assume UTC+3 (summer time) for now
     // In production, you'd want proper timezone handling
     return -180; // -3 hours in minutes
@@ -173,7 +192,10 @@ export class WashingMachineService {
     return hour >= 6 && hour <= 20;
   }
 
-  private filterTodayDayPrices(todayPrices: ElectricityPrice[], now: Date): ElectricityPrice[] {
+  private filterTodayDayPrices(
+    todayPrices: ElectricityPrice[],
+    now: Date,
+  ): ElectricityPrice[] {
     return todayPrices.filter((price) => {
       const priceTime = new Date(price.startDate);
       const finnishPriceTime = this.convertToFinnishTime(priceTime);
@@ -181,7 +203,11 @@ export class WashingMachineService {
     });
   }
 
-  private filterTonightPrices(todayPrices: ElectricityPrice[], tomorrowPrices: ElectricityPrice[], now: Date): ElectricityPrice[] {
+  private filterTonightPrices(
+    todayPrices: ElectricityPrice[],
+    tomorrowPrices: ElectricityPrice[],
+    now: Date,
+  ): ElectricityPrice[] {
     // Tonight prices: from now until end of today's night hours + tomorrow's early morning hours
     const allPrices = [...todayPrices, ...tomorrowPrices];
     return allPrices.filter((price) => {
@@ -192,7 +218,10 @@ export class WashingMachineService {
     });
   }
 
-  private filterTomorrowDayPrices(tomorrowPrices: ElectricityPrice[], now: Date): ElectricityPrice[] {
+  private filterTomorrowDayPrices(
+    tomorrowPrices: ElectricityPrice[],
+    now: Date,
+  ): ElectricityPrice[] {
     return tomorrowPrices.filter((price) => {
       const priceTime = new Date(price.startDate);
       const finnishPriceTime = this.convertToFinnishTime(priceTime);

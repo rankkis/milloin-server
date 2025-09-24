@@ -12,7 +12,7 @@ export class WashingForecastDto {
 
   @ApiProperty({
     description:
-      'Optimal washing time for tonight (20:01-05:59 Finnish time). Only included if cheaper than today\'s optimal time.',
+      "Optimal washing time for tonight (20:01-05:59 Finnish time). Only included if cheaper than today's optimal time.",
     type: OptimalTimeDto,
     required: false,
   })
@@ -20,7 +20,7 @@ export class WashingForecastDto {
 
   @ApiProperty({
     description:
-      'Optimal washing time for tomorrow during day hours (06:00-20:00 Finnish time). Only included if cheaper than today\'s optimal time.',
+      "Optimal washing time for tomorrow during day hours (06:00-20:00 Finnish time). Only included if cheaper than today's optimal time.",
     type: OptimalTimeDto,
     required: false,
   })
