@@ -29,11 +29,11 @@ export class WashingMachineController {
 
       **Response Structure:**
       - **today**: Only included if currently daytime (06:00-20:00 Finnish time)
-      - **tonight**: Only included if cheaper than today's optimal time (20:01-05:59)
-      - **tomorrow**: Only included if cheaper than today's optimal time (06:00-20:00)
+      - **tonight**: Only included if cheaper than today's optimal price (20:01-05:59)
+      - **tomorrow**: Included during night time OR during day time if cheaper than today (06:00-20:00)
 
       **Pricing Logic:**
-      All recommendations are compared against today's optimal daytime price. Only cheaper alternatives are included.
+      All recommendations show potential savings compared to the current hour price when available.
 
       **Caching:**
       Data is cached with dynamic TTL that expires at the end of the hour when the optimal time starts,
@@ -55,7 +55,7 @@ export class WashingMachineController {
   @ApiResponse({
     status: 200,
     description:
-      'Successful forecast response with optimal washing times. Returns up to 3 nullable properties: today (if daytime), tonight (if cheaper than today), and tomorrow (if cheaper than today). Each contains a single optimal 2-hour washing slot.',
+      'Successful forecast response with optimal washing times. Returns up to 3 nullable properties: today (if daytime), tonight (if cheaper than today), and tomorrow (during night time OR if cheaper than today during day time). Each optimal time contains a single 2-hour washing slot.',
     type: WashingForecastDto,
   })
   @ApiBadRequestResponse({

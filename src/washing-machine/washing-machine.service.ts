@@ -25,8 +25,9 @@ export class WashingMachineService {
 
     try {
       tomorrowPrices = await this.electricityPriceService.getTomorrowPrices();
-    } catch {
+    } catch (error) {
       console.warn("Tomorrow's prices not available yet");
+      console.warn('Error details:', error.message);
     }
 
     // Get current time in Finnish timezone
@@ -126,9 +127,8 @@ export class WashingMachineService {
         ...todaySavings,
       };
 
-      // Only include tonight if cheaper than current hour (or cheaper than today if no current price)
-      const tonightThreshold = currentHourPrice || todayOptimal.price;
-      if (tonightOptimal && tonightOptimal.price < tonightThreshold) {
+      // Include tonight only if cheaper than today
+      if (tonightOptimal && tonightOptimal.price < todayOptimal.price) {
         const tonightSavings = calculateSavings(tonightOptimal);
         result.tonight = {
           ...tonightOptimal,
@@ -136,13 +136,30 @@ export class WashingMachineService {
         };
       }
 
-      // Only include tomorrow if cheaper than current hour (or cheaper than today if no current price)
-      const tomorrowThreshold = currentHourPrice || todayOptimal.price;
-      if (tomorrowOptimal && tomorrowOptimal.price < tomorrowThreshold) {
+      // Include tomorrow only if cheaper than today
+      if (tomorrowOptimal && tomorrowOptimal.price < todayOptimal.price) {
         const tomorrowSavings = calculateSavings(tomorrowOptimal);
         result.tomorrow = {
           ...tomorrowOptimal,
           ...tomorrowSavings,
+        };
+      }
+    } else {
+      // If no today optimal (e.g., after daytime hours), include tomorrow
+      if (tomorrowOptimal) {
+        const tomorrowSavings = calculateSavings(tomorrowOptimal);
+        result.tomorrow = {
+          ...tomorrowOptimal,
+          ...tomorrowSavings,
+        };
+      }
+
+      // Include tonight if available (no today to compare against)
+      if (tonightOptimal) {
+        const tonightSavings = calculateSavings(tonightOptimal);
+        result.tonight = {
+          ...tonightOptimal,
+          ...tonightSavings,
         };
       }
     }
