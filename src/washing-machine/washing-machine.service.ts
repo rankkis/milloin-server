@@ -240,7 +240,7 @@ export class WashingMachineService {
         optimalSlots.push({
           startTime: slot[0].startDate,
           endTime: slot[slot.length - 1].endDate,
-          price: Math.round(averagePrice * 100) / 100,
+          price: Math.round(averagePrice * 100 * 100) / 100, // Convert euros to cents and round to 2 decimal places
         });
       }
     }
@@ -274,10 +274,10 @@ export class WashingMachineService {
         console.warn(
           'Exact current hour price not found, using first available price',
         );
-        return currentPrices[0].price;
+        return currentPrices[0].price * 100; // Convert euros to cents
       }
 
-      return currentHourData.price;
+      return currentHourData.price * 100; // Convert euros to cents
     } catch (error) {
       console.warn('Failed to fetch current hour price:', error);
       return null;
