@@ -169,8 +169,10 @@ export class WashingMachineService {
   ): ElectricityPriceDto[] {
     return todayPrices.filter((price) => {
       const priceTime = new Date(price.startDate);
+      const priceEndTime = new Date(price.endDate);
       const finnishPriceTime = this.convertToFinnishTime(priceTime);
-      return priceTime >= now && this.isDaytime(finnishPriceTime);
+      // Include current hour if it hasn't ended yet, and all future hours
+      return priceEndTime > now && this.isDaytime(finnishPriceTime);
     });
   }
 
@@ -183,9 +185,11 @@ export class WashingMachineService {
     const allPrices = [...todayPrices, ...tomorrowPrices];
     return allPrices.filter((price) => {
       const priceTime = new Date(price.startDate);
+      const priceEndTime = new Date(price.endDate);
       const finnishPriceTime = this.convertToFinnishTime(priceTime);
       const hour = finnishPriceTime.getHours();
-      return priceTime >= now && (hour > 20 || hour < 6);
+      // Include current hour if it hasn't ended yet, and all future hours
+      return priceEndTime > now && (hour > 20 || hour < 6);
     });
   }
 
@@ -195,8 +199,10 @@ export class WashingMachineService {
   ): ElectricityPriceDto[] {
     return tomorrowPrices.filter((price) => {
       const priceTime = new Date(price.startDate);
+      const priceEndTime = new Date(price.endDate);
       const finnishPriceTime = this.convertToFinnishTime(priceTime);
-      return priceTime >= now && this.isDaytime(finnishPriceTime);
+      // Include current hour if it hasn't ended yet, and all future hours
+      return priceEndTime > now && this.isDaytime(finnishPriceTime);
     });
   }
 
