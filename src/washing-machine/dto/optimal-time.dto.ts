@@ -35,25 +35,23 @@ export class OptimalTimeDto {
 
   @ApiProperty({
     description:
-      'Amount saved compared to average price for the period (cents/kWh)',
+      'Potential amount saved compared to current hour price (cents/kWh). Null when current hour is optimal.',
     example: 1.25,
     type: Number,
+    required: false,
+    nullable: true,
   })
-  savings: number;
+  potentialSavings: number | null;
 
   @ApiProperty({
-    description: 'Percentage savings compared to average price for the period',
+    description:
+      'Potential percentage savings compared to current hour price. Null when current hour is optimal.',
     example: 26.32,
     type: Number,
     minimum: 0,
     maximum: 100,
+    required: false,
+    nullable: true,
   })
-  savingsPercentage: number;
-
-  @ApiProperty({
-    description: 'Time period classification',
-    example: 'night',
-    enum: ['day', 'night'],
-  })
-  period: 'day' | 'night';
+  potentialSavingsPercentage: number | null;
 }

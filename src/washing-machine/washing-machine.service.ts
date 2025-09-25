@@ -1,10 +1,6 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import {
-  ElectricityPriceService,
-  ElectricityPrice,
-} from './electricity-price.service';
+import { Injectable } from '@nestjs/common';
+import { ElectricityPriceFiService } from '../shared/electricity-price-fi/electricity-price-fi.service';
+import { ElectricityPriceDto } from '../shared/electricity-price-fi/dto/electricity-price.dto';
 import { WashingForecastDto } from './dto/washing-forecast.dto';
 import { OptimalTimeDto } from './dto/optimal-time.dto';
 
@@ -15,24 +11,17 @@ export type OptimalTime = OptimalTimeDto;
 @Injectable()
 export class WashingMachineService {
   constructor(
-    private readonly electricityPriceService: ElectricityPriceService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly electricityPriceService: ElectricityPriceFiService,
   ) {}
 
-  async getForecast(hours: number = 24): Promise<WashingForecast> {
-    const cacheKey = `washing-forecast-${hours}`;
-    const cachedForecast =
-      await this.cacheManager.get<WashingForecast>(cacheKey);
-
-    if (cachedForecast) {
-      return cachedForecast;
-    }
-
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async getForecast(_hours = 24): Promise<WashingForecast> {
     const washingDurationHours = 2; // Typical washing machine cycle
 
-    // Get price data for today and tomorrow
+    // Get price data for today, tomorrow, and current hour
     const todayPrices = await this.electricityPriceService.getTodayPrices();
-    let tomorrowPrices: ElectricityPrice[] = [];
+    let tomorrowPrices: ElectricityPriceDto[] = [];
+    const currentHourPrice = await this.getCurrentHourPrice();
 
     try {
       tomorrowPrices = await this.electricityPriceService.getTomorrowPrices();
@@ -64,14 +53,13 @@ export class WashingMachineService {
       const todayOptimalTimes = this.findOptimalWashingTimes(
         todayDayPrices,
         washingDurationHours,
-        'day',
       );
       if (todayOptimalTimes.length > 0) {
         todayOptimal = {
           ...todayOptimalTimes[0],
           rank: 1,
-          savings: 0, // Will calculate later
-          savingsPercentage: 0,
+          potentialSavings: null, // Will calculate later
+          potentialSavingsPercentage: null,
         };
       }
     }
@@ -81,14 +69,13 @@ export class WashingMachineService {
       const tonightOptimalTimes = this.findOptimalWashingTimes(
         tonightPrices,
         washingDurationHours,
-        'night',
       );
       if (tonightOptimalTimes.length > 0) {
         tonightOptimal = {
           ...tonightOptimalTimes[0],
           rank: 1,
-          savings: 0, // Will calculate later
-          savingsPercentage: 0,
+          potentialSavings: null, // Will calculate later
+          potentialSavingsPercentage: null,
         };
       }
     }
@@ -98,80 +85,69 @@ export class WashingMachineService {
       const tomorrowOptimalTimes = this.findOptimalWashingTimes(
         tomorrowDayPrices,
         washingDurationHours,
-        'day',
       );
       if (tomorrowOptimalTimes.length > 0) {
         tomorrowOptimal = {
           ...tomorrowOptimalTimes[0],
           rank: 1,
-          savings: 0, // Will calculate later
-          savingsPercentage: 0,
+          potentialSavings: null, // Will calculate later
+          potentialSavingsPercentage: null,
         };
       }
     }
 
-    // Build result - only include tonight/tomorrow if cheaper than today
+    // Build result - only include tonight/tomorrow if cheaper than current hour
     const result: WashingForecast = {};
 
-    if (todayOptimal) {
-      result.today = todayOptimal;
+    // Calculate savings relative to current hour price
+    const calculateSavings = (
+      optimal: OptimalTimeDto,
+    ): {
+      potentialSavings: number | null;
+      potentialSavingsPercentage: number | null;
+    } => {
+      if (!currentHourPrice || this.isCurrentHourOptimal(optimal)) {
+        return { potentialSavings: null, potentialSavingsPercentage: null };
+      }
 
-      // Only include tonight if cheaper than today
-      if (tonightOptimal && tonightOptimal.price < todayOptimal.price) {
-        const savings = todayOptimal.price - tonightOptimal.price;
+      const savings = currentHourPrice - optimal.price;
+      const savingsPercentage = (savings / currentHourPrice) * 100;
+
+      return {
+        potentialSavings: Math.round(savings * 100) / 100,
+        potentialSavingsPercentage: Math.round(savingsPercentage * 100) / 100,
+      };
+    };
+
+    if (todayOptimal) {
+      const todaySavings = calculateSavings(todayOptimal);
+      result.today = {
+        ...todayOptimal,
+        ...todaySavings,
+      };
+
+      // Only include tonight if cheaper than current hour (or cheaper than today if no current price)
+      const tonightThreshold = currentHourPrice || todayOptimal.price;
+      if (tonightOptimal && tonightOptimal.price < tonightThreshold) {
+        const tonightSavings = calculateSavings(tonightOptimal);
         result.tonight = {
           ...tonightOptimal,
-          savings: Math.round(savings * 100) / 100,
-          savingsPercentage:
-            Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
+          ...tonightSavings,
         };
       }
 
-      // Only include tomorrow if cheaper than today
-      if (tomorrowOptimal && tomorrowOptimal.price < todayOptimal.price) {
-        const savings = todayOptimal.price - tomorrowOptimal.price;
+      // Only include tomorrow if cheaper than current hour (or cheaper than today if no current price)
+      const tomorrowThreshold = currentHourPrice || todayOptimal.price;
+      if (tomorrowOptimal && tomorrowOptimal.price < tomorrowThreshold) {
+        const tomorrowSavings = calculateSavings(tomorrowOptimal);
         result.tomorrow = {
           ...tomorrowOptimal,
-          savings: Math.round(savings * 100) / 100,
-          savingsPercentage:
-            Math.round((savings / todayOptimal.price) * 100 * 100) / 100,
+          ...tomorrowSavings,
         };
       }
-    }
-
-    // Cache the result with TTL based on earliest startTime
-    const availableOptions = [
-      result.today,
-      result.tonight,
-      result.tomorrow,
-    ].filter(Boolean);
-    const earliestOption =
-      availableOptions.length > 0
-        ? availableOptions.reduce((earliest, current) =>
-            new Date(current.startTime) < new Date(earliest.startTime)
-              ? current
-              : earliest,
-          )
-        : null;
-
-    if (earliestOption) {
-      const ttl = this.getTtlUntilEndOfOptimalHour(earliestOption.startTime);
-      await this.cacheManager.set(cacheKey, result, ttl);
     }
 
     return result;
-  }
-
-  private getTtlUntilEndOfOptimalHour(optimalStartTime: string): number {
-    const optimalTime = new Date(optimalStartTime);
-    const endOfOptimalHour = new Date(optimalTime);
-    endOfOptimalHour.setMinutes(59, 59, 999);
-
-    const now = new Date();
-    return Math.max(
-      1,
-      Math.floor((endOfOptimalHour.getTime() - now.getTime()) / 1000),
-    );
   }
 
   private convertToFinnishTime(date: Date): Date {
@@ -188,9 +164,9 @@ export class WashingMachineService {
   }
 
   private filterTodayDayPrices(
-    todayPrices: ElectricityPrice[],
+    todayPrices: ElectricityPriceDto[],
     now: Date,
-  ): ElectricityPrice[] {
+  ): ElectricityPriceDto[] {
     return todayPrices.filter((price) => {
       const priceTime = new Date(price.startDate);
       const finnishPriceTime = this.convertToFinnishTime(priceTime);
@@ -199,10 +175,10 @@ export class WashingMachineService {
   }
 
   private filterTonightPrices(
-    todayPrices: ElectricityPrice[],
-    tomorrowPrices: ElectricityPrice[],
+    todayPrices: ElectricityPriceDto[],
+    tomorrowPrices: ElectricityPriceDto[],
     now: Date,
-  ): ElectricityPrice[] {
+  ): ElectricityPriceDto[] {
     // Tonight prices: from now until end of today's night hours + tomorrow's early morning hours
     const allPrices = [...todayPrices, ...tomorrowPrices];
     return allPrices.filter((price) => {
@@ -214,9 +190,9 @@ export class WashingMachineService {
   }
 
   private filterTomorrowDayPrices(
-    tomorrowPrices: ElectricityPrice[],
+    tomorrowPrices: ElectricityPriceDto[],
     now: Date,
-  ): ElectricityPrice[] {
+  ): ElectricityPriceDto[] {
     return tomorrowPrices.filter((price) => {
       const priceTime = new Date(price.startDate);
       const finnishPriceTime = this.convertToFinnishTime(priceTime);
@@ -225,15 +201,16 @@ export class WashingMachineService {
   }
 
   private findOptimalWashingTimes(
-    prices: ElectricityPrice[],
+    prices: ElectricityPriceDto[],
     durationHours: number,
-    period: 'day' | 'night',
-  ): Omit<OptimalTime, 'rank' | 'savings' | 'savingsPercentage'>[] {
+  ): Omit<
+    OptimalTime,
+    'rank' | 'potentialSavings' | 'potentialSavingsPercentage'
+  >[] {
     const optimalSlots: Array<{
       startTime: string;
       endTime: string;
       price: number;
-      period: 'day' | 'night';
     }> = [];
 
     // Find all possible consecutive time slots of the required duration
@@ -258,12 +235,58 @@ export class WashingMachineService {
           startTime: slot[0].startDate,
           endTime: slot[slot.length - 1].endDate,
           price: Math.round(averagePrice * 100) / 100,
-          period,
         });
       }
     }
 
     // Sort by price (cheapest first) and return top 5
     return optimalSlots.sort((a, b) => a.price - b.price).slice(0, 5);
+  }
+
+  private async getCurrentHourPrice(): Promise<number | null> {
+    try {
+      const currentPrices =
+        await this.electricityPriceService.getCurrentPrices();
+
+      if (currentPrices.length === 0) {
+        console.warn('No current price data available');
+        return null;
+      }
+
+      // Find the price for the current hour
+      const now = new Date();
+      const currentHour = new Date(now);
+      currentHour.setMinutes(0, 0, 0);
+
+      const currentHourData = currentPrices.find((price) => {
+        const priceStart = new Date(price.startDate);
+        return priceStart.getTime() === currentHour.getTime();
+      });
+
+      if (!currentHourData) {
+        // Fallback: use first price if exact hour match not found
+        console.warn(
+          'Exact current hour price not found, using first available price',
+        );
+        return currentPrices[0].price;
+      }
+
+      return currentHourData.price;
+    } catch (error) {
+      console.warn('Failed to fetch current hour price:', error);
+      return null;
+    }
+  }
+
+  private isCurrentHourOptimal(optimal: OptimalTimeDto): boolean {
+    const now = new Date();
+    const currentHour = new Date(now);
+    currentHour.setMinutes(0, 0, 0);
+
+    const optimalStart = new Date(optimal.startTime);
+    const optimalEnd = new Date(optimal.endTime);
+
+    // Check if current hour falls within the optimal time period
+    return currentHour >= optimalStart && currentHour < optimalEnd;
   }
 }

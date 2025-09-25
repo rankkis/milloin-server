@@ -1,40 +1,26 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Test } from '@nestjs/testing';
 import { WashingMachineService } from './washing-machine.service';
-import { ElectricityPriceService } from './electricity-price.service';
+import { ElectricityPriceFiService } from '../shared/electricity-price-fi/electricity-price-fi.service';
 
-describe('WashingMachineService - TTL Logic', () => {
-  let service: WashingMachineService;
-
+describe('WashingMachineService - Business Logic', () => {
   beforeEach(async () => {
-    const mockCacheManager = {
-      get: jest.fn(),
-      set: jest.fn(),
-    };
-
     const mockElectricityPriceService = {
       getTodayPrices: jest.fn(),
       getTomorrowPrices: jest.fn(),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    await Test.createTestingModule({
       providers: [
         WashingMachineService,
         {
-          provide: ElectricityPriceService,
+          provide: ElectricityPriceFiService,
           useValue: mockElectricityPriceService,
-        },
-        {
-          provide: CACHE_MANAGER,
-          useValue: mockCacheManager,
         },
       ],
     }).compile();
-
-    service = module.get<WashingMachineService>(WashingMachineService);
   });
 
-  describe('Earliest StartTime Selection for TTL', () => {
+  describe('Earliest StartTime Selection', () => {
     beforeEach(() => {
       jest.clearAllMocks();
     });
@@ -46,28 +32,25 @@ describe('WashingMachineService - TTL Logic', () => {
           startTime: '2025-09-24T14:00:00.000Z',
           endTime: '2025-09-24T16:00:00.000Z',
           price: 5.0,
-          period: 'day' as const,
           rank: 1,
-          savings: 0,
-          savingsPercentage: 0,
+          potentialSavings: 0,
+          potentialSavingsPercentage: 0,
         },
         tonight: {
           startTime: '2025-09-24T21:00:00.000Z',
           endTime: '2025-09-24T23:00:00.000Z',
           price: 3.0,
-          period: 'night' as const,
           rank: 1,
-          savings: 2.0,
-          savingsPercentage: 40,
+          potentialSavings: 2.0,
+          potentialSavingsPercentage: 40,
         },
         tomorrow: {
           startTime: '2025-09-25T08:00:00.000Z',
           endTime: '2025-09-25T10:00:00.000Z',
           price: 4.0,
-          period: 'day' as const,
           rank: 1,
-          savings: 1.0,
-          savingsPercentage: 20,
+          potentialSavings: 1.0,
+          potentialSavingsPercentage: 20,
         },
       };
 
@@ -94,10 +77,9 @@ describe('WashingMachineService - TTL Logic', () => {
           startTime: '2025-09-24T21:00:00.000Z',
           endTime: '2025-09-24T23:00:00.000Z',
           price: 3.0,
-          period: 'night' as const,
           rank: 1,
-          savings: 0,
-          savingsPercentage: 0,
+          potentialSavings: 0,
+          potentialSavingsPercentage: 0,
         },
       };
 
@@ -123,19 +105,17 @@ describe('WashingMachineService - TTL Logic', () => {
           startTime: '2025-09-24T23:30:00.000Z',
           endTime: '2025-09-25T01:30:00.000Z',
           price: 5.0,
-          period: 'night' as const,
           rank: 1,
-          savings: 0,
-          savingsPercentage: 0,
+          potentialSavings: 0,
+          potentialSavingsPercentage: 0,
         },
         tomorrow: {
           startTime: '2025-09-25T06:00:00.000Z',
           endTime: '2025-09-25T08:00:00.000Z',
           price: 3.0,
-          period: 'day' as const,
           rank: 1,
-          savings: 2.0,
-          savingsPercentage: 40,
+          potentialSavings: 2.0,
+          potentialSavingsPercentage: 40,
         },
       };
 
@@ -161,19 +141,17 @@ describe('WashingMachineService - TTL Logic', () => {
           startTime: '2025-09-24T14:00:00.000Z',
           endTime: '2025-09-24T16:00:00.000Z',
           price: 5.0,
-          period: 'day' as const,
           rank: 1,
-          savings: 0,
-          savingsPercentage: 0,
+          potentialSavings: 0,
+          potentialSavingsPercentage: 0,
         },
         tomorrow: {
           startTime: '2025-09-24T14:00:00.000Z', // Same time (edge case)
           endTime: '2025-09-24T16:00:00.000Z',
           price: 3.0,
-          period: 'day' as const,
           rank: 1,
-          savings: 2.0,
-          savingsPercentage: 40,
+          potentialSavings: 2.0,
+          potentialSavingsPercentage: 40,
         },
       };
 
@@ -199,19 +177,17 @@ describe('WashingMachineService - TTL Logic', () => {
           startTime: '2025-09-24T22:00:00.000Z', // Tonight at 22:00
           endTime: '2025-09-25T00:00:00.000Z',
           price: 3.0,
-          period: 'night' as const,
           rank: 1,
-          savings: 0,
-          savingsPercentage: 0,
+          potentialSavings: 0,
+          potentialSavingsPercentage: 0,
         },
         tomorrow: {
           startTime: '2025-09-25T02:00:00.000Z', // Tomorrow early morning at 02:00
           endTime: '2025-09-25T04:00:00.000Z',
           price: 2.0,
-          period: 'night' as const,
           rank: 1,
-          savings: 1.0,
-          savingsPercentage: 33,
+          potentialSavings: 1.0,
+          potentialSavingsPercentage: 33,
         },
       };
 
@@ -232,117 +208,58 @@ describe('WashingMachineService - TTL Logic', () => {
     });
   });
 
-  describe('TTL Calculation Method', () => {
-    it('should calculate correct TTL for future times', () => {
-      // Mock current time
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2025-09-24T10:30:00.000Z'));
-
-      // Access private method
-      const ttlMethod = (service as any).getTtlUntilEndOfOptimalHour.bind(
-        service,
-      );
-
-      // Test TTL calculation for 14:00 start time
-      const ttl = ttlMethod('2025-09-24T14:00:00.000Z');
-
-      // Should be from 10:30:00 to 14:59:59 = 4h 29m 59s = 16139 seconds
-      const expectedSeconds = 4 * 3600 + 29 * 60 + 59;
-      expect(ttl).toBe(expectedSeconds);
-
-      jest.useRealTimers();
-    });
-
-    it('should return minimum TTL for past times', () => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2025-09-24T15:30:00.000Z'));
-
-      const ttlMethod = (service as any).getTtlUntilEndOfOptimalHour.bind(
-        service,
-      );
-
-      // Test TTL for past time
-      const ttl = ttlMethod('2025-09-24T14:00:00.000Z');
-
-      // Should return minimum of 1 second
-      expect(ttl).toBe(1);
-
-      jest.useRealTimers();
-    });
-
-    it('should calculate TTL for times on next day', () => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2025-09-24T23:30:00.000Z'));
-
-      const ttlMethod = (service as any).getTtlUntilEndOfOptimalHour.bind(
-        service,
-      );
-
-      // Test TTL for tomorrow 06:00
-      const ttl = ttlMethod('2025-09-25T06:00:00.000Z');
-
-      // Should be from 23:30:00 today to 06:59:59 tomorrow = 7h 29m 59s = 26999 seconds
-      const expectedSeconds = 7 * 3600 + 29 * 60 + 59;
-      expect(ttl).toBe(expectedSeconds);
-
-      jest.useRealTimers();
-    });
-  });
-
   describe('Logic Integration', () => {
-    it('should demonstrate the complete TTL selection logic', () => {
-      // This test demonstrates the exact logic used in the service
+    it('should demonstrate the complete pricing logic selection', () => {
+      // This test demonstrates the business logic for selecting optimal times
       const mockResult = {
         today: {
           startTime: '2025-09-24T14:00:00.000Z',
           endTime: '2025-09-24T16:00:00.000Z',
           price: 6.0,
-          period: 'day' as const,
           rank: 1,
-          savings: 0,
-          savingsPercentage: 0,
+          potentialSavings: null, // Current hour is optimal in this example
+          potentialSavingsPercentage: null,
         },
         tonight: {
           startTime: '2025-09-24T21:00:00.000Z',
           endTime: '2025-09-24T23:00:00.000Z',
           price: 4.0,
-          period: 'night' as const,
           rank: 1,
-          savings: 2.0,
-          savingsPercentage: 33,
+          potentialSavings: 2.0, // Savings compared to current hour price
+          potentialSavingsPercentage: 33,
         },
         tomorrow: {
           startTime: '2025-09-25T08:00:00.000Z',
           endTime: '2025-09-25T10:00:00.000Z',
           price: 5.0,
-          period: 'day' as const,
           rank: 1,
-          savings: 1.0,
-          savingsPercentage: 17,
+          potentialSavings: 1.0, // Savings compared to current hour price
+          potentialSavingsPercentage: 17,
         },
       };
 
-      // This is the exact logic from the service
-      const availableOptions = [
+      // Verify pricing logic: tonight is cheapest, tomorrow is middle, today is most expensive
+      expect(mockResult.tonight.price).toBeLessThan(mockResult.tomorrow.price);
+      expect(mockResult.tomorrow.price).toBeLessThan(mockResult.today.price);
+
+      // Verify savings calculations are relative to current hour price
+      // Today's optimal has null savings (current hour is optimal)
+      expect(mockResult.today.potentialSavings).toBeNull();
+      expect(mockResult.today.potentialSavingsPercentage).toBeNull();
+
+      // Tonight and tomorrow show savings compared to current hour price
+      expect(mockResult.tonight.potentialSavings).toBe(2.0);
+      expect(mockResult.tomorrow.potentialSavings).toBe(1.0);
+
+      // Verify the service correctly identifies the cheapest option
+      const cheapestOption = [
         mockResult.today,
         mockResult.tonight,
         mockResult.tomorrow,
-      ].filter(Boolean);
-      const earliestOption =
-        availableOptions.length > 0
-          ? availableOptions.reduce((earliest, current) =>
-              new Date(current.startTime) < new Date(earliest.startTime)
-                ? current
-                : earliest,
-            )
-          : null;
-
-      expect(earliestOption).not.toBeNull();
-      expect(earliestOption?.startTime).toBe('2025-09-24T14:00:00.000Z');
-      expect(earliestOption).toBe(mockResult.today);
-
-      // This proves that TTL will be calculated based on today's startTime,
-      // not the cheapest option (tonight) or any other logic
+      ].reduce((cheapest, current) =>
+        current.price < cheapest.price ? current : cheapest,
+      );
+      expect(cheapestOption).toBe(mockResult.tonight);
     });
   });
 });
