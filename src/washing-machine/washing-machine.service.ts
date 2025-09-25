@@ -175,16 +175,11 @@ export class WashingMachineService {
   }
 
   private convertToFinnishTime(date: Date): Date {
-    // Convert to Finnish timezone (UTC+2 in winter, UTC+3 in summer)
-    const offset = date.getTimezoneOffset();
-    const finnishOffset = this.getFinnishTimezoneOffset();
-    return new Date(date.getTime() + (offset + finnishOffset) * 60 * 1000);
-  }
-
-  private getFinnishTimezoneOffset(): number {
-    // Simplified: assume UTC+3 (summer time) for now
-    // In production, you'd want proper timezone handling
-    return -180; // -3 hours in minutes
+    // Convert to Finnish timezone (UTC+3 in summer, UTC+2 in winter)
+    // Use proper timezone conversion
+    return new Date(
+      date.toLocaleString('en-US', { timeZone: 'Europe/Helsinki' }),
+    );
   }
 
   private isDaytime(finnishTime: Date): boolean {
