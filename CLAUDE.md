@@ -57,7 +57,7 @@ test/
 
 - Execute prettier, linter and run tests before production deployment
 - Verify that swagger documentation is updated
-- After deployment verify that the service is responding
+- After deployment verify service health
 
 ## Development Notes
 

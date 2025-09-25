@@ -52,6 +52,13 @@ async function bootstrap() {
       customCssUrl: '/swagger-ui-custom.css',
     });
 
+    // Add endpoint for raw OpenAPI JSON schema
+    app.use('/api-json', (req: any, res: any) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.json(document);
+    });
+
     await app.listen(process.env.PORT ?? 3000);
     console.log(
       `Application is running on: http://localhost:${process.env.PORT ?? 3000}`,

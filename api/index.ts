@@ -4,6 +4,7 @@ import { AppModule } from '../src/app.module';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 
 let app: any;
+let swaggerDocument: any;
 
 const createNestApp = async () => {
   if (!app) {
@@ -50,8 +51,8 @@ const createNestApp = async () => {
       .addTag('washing-machine', 'Washing machine optimal timing endpoints')
       .build();
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document, {
+    swaggerDocument = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, swaggerDocument, {
       customSiteTitle: 'Milloin Server API Documentation',
       swaggerOptions: {
         persistAuthorization: true,
@@ -69,6 +70,26 @@ const createNestApp = async () => {
 };
 
 export default async (req: VercelRequest, res: VercelResponse) => {
+  // Handle OpenAPI JSON schema endpoint
+  if (req.url === '/api-json' || req.url === '/api/json') {
+    const nestApp = await createNestApp();
+
+    // Set CORS headers for JSON schema
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Content-Type', 'application/json');
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+
+    // Return the OpenAPI JSON document
+    return res.json(swaggerDocument);
+  }
+
   const nestApp = await createNestApp();
   const httpAdapter = nestApp.getHttpAdapter();
   const instance = httpAdapter.getInstance();
