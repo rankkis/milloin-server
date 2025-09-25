@@ -259,27 +259,62 @@ export class WashingMachineService {
         return null;
       }
 
-      // Find the price for the current hour
+      // Convert current time to Finnish timezone and normalize to hour boundary
       const now = new Date();
-      const currentHour = new Date(now);
+      const finnishNow = this.convertToFinnishTime(now);
+      const currentHour = new Date(finnishNow);
       currentHour.setMinutes(0, 0, 0);
+
+      console.log(
+        'Looking for current hour price at:',
+        currentHour.toISOString(),
+      );
+      console.log(
+        'Available price data:',
+        currentPrices.map((p) => ({ startDate: p.startDate, price: p.price })),
+      );
 
       const currentHourData = currentPrices.find((price) => {
         const priceStart = new Date(price.startDate);
-        return priceStart.getTime() === currentHour.getTime();
+        const finnishPriceStart = this.convertToFinnishTime(priceStart);
+        finnishPriceStart.setMinutes(0, 0, 0);
+
+        return finnishPriceStart.getTime() === currentHour.getTime();
       });
 
       if (!currentHourData) {
-        // Fallback: use first price if exact hour match not found
+        // Enhanced fallback: find closest hour within reasonable range
         console.warn(
-          'Exact current hour price not found, using first available price',
+          'Exact current hour price not found, searching for closest match',
         );
+
+        const closestHourData = currentPrices.find((price) => {
+          const priceStart = new Date(price.startDate);
+          const finnishPriceStart = this.convertToFinnishTime(priceStart);
+          const timeDiff = Math.abs(
+            finnishPriceStart.getTime() - finnishNow.getTime(),
+          );
+          // Within 1 hour (3600000 ms)
+          return timeDiff <= 3600000;
+        });
+
+        if (closestHourData) {
+          console.warn(
+            'Using closest hour price from:',
+            closestHourData.startDate,
+          );
+          return closestHourData.price * 100; // Convert euros to cents
+        }
+
+        // Final fallback: use first price
+        console.warn('No close match found, using first available price');
         return currentPrices[0].price * 100; // Convert euros to cents
       }
 
       return currentHourData.price * 100; // Convert euros to cents
     } catch (error) {
-      console.warn('Failed to fetch current hour price:', error);
+      console.error('Failed to fetch current hour price:', error);
+      console.error('Error details:', error.message, error.stack);
       return null;
     }
   }

@@ -29,7 +29,7 @@ export class ElectricityPriceFiService {
       }
 
       const data = await response.json();
-      const transformedData = this.transformSpotHintaResponse(data);
+      const transformedData = this.transformSpotHintaResponse([data]);
 
       const ttl = this.calculateNextUpdateTtl();
       await this.cacheManager.set(cacheKey, transformedData, ttl);
