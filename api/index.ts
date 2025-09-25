@@ -17,8 +17,25 @@ const createNestApp = async () => {
         'https://milloin-web.vercel.app',
       ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'cache-control', 'pragma'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Accept',
+        'Accept-Language',
+        'Accept-Encoding',
+        'User-Agent',
+        'Referer',
+        'Origin',
+        'X-Requested-With',
+        'cache-control',
+        'Cache-Control',
+        'pragma',
+        'Pragma',
+      ],
+      exposedHeaders: ['Content-Type', 'Content-Length', 'Date'],
       credentials: true,
+      maxAge: 86400, // 24 hours preflight cache
+      preflightContinue: false,
     });
 
     // Swagger configuration for production

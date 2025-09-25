@@ -12,10 +12,22 @@ async function bootstrap() {
     allowedHeaders: [
       'Content-Type',
       'Authorization',
+      'Accept',
+      'Accept-Language',
+      'Accept-Encoding',
+      'User-Agent',
+      'Referer',
+      'Origin',
+      'X-Requested-With',
       'cache-control',
+      'Cache-Control',
       'pragma',
+      'Pragma',
     ],
+    exposedHeaders: ['Content-Type', 'Content-Length', 'Date'],
     credentials: true,
+    maxAge: 86400, // 24 hours preflight cache
+    preflightContinue: false,
   });
 
   // Only configure Swagger and listen to port in non-Vercel environments
