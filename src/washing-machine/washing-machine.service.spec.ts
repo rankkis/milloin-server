@@ -12,6 +12,7 @@ describe('WashingMachineService - Business Rules', () => {
       getTodayPrices: jest.fn(),
       getTomorrowPrices: jest.fn(),
       getCurrentPrices: jest.fn(),
+      getFuturePrices: jest.fn(),
     } as any;
 
     const moduleRef = await Test.createTestingModule({
@@ -32,11 +33,16 @@ describe('WashingMachineService - Business Rules', () => {
       jest.clearAllMocks();
     });
 
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should include today calculation when current time is during daytime (10:00 Finnish)', async () => {
       // Mock current time as 2024-07-15 10:00 Finnish time (UTC+3)
       // This translates to 07:00 UTC
       const mockDate = new Date('2024-07-15T07:00:00.000Z');
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -81,7 +87,8 @@ describe('WashingMachineService - Business Rules', () => {
       // Mock current time as 2024-07-15 22:00 Finnish time (UTC+3)
       // This translates to 19:00 UTC
       const mockDate = new Date('2024-07-15T19:00:00.000Z');
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -110,7 +117,8 @@ describe('WashingMachineService - Business Rules', () => {
       // Mock current time as 2024-07-15 05:00 Finnish time (UTC+3)
       // This translates to 02:00 UTC
       const mockDate = new Date('2024-07-15T02:00:00.000Z');
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -141,10 +149,15 @@ describe('WashingMachineService - Business Rules', () => {
       jest.clearAllMocks();
     });
 
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should include tomorrow when today is NOT available (nighttime)', async () => {
       // Mock current time as 22:00 Finnish time (nighttime - no today)
       const mockDate = new Date('2024-07-15T19:00:00.000Z'); // 22:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -189,7 +202,8 @@ describe('WashingMachineService - Business Rules', () => {
     it('should include tomorrow when it is cheaper than today', async () => {
       // Mock current time as 10:00 Finnish time (daytime - today available)
       const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -241,7 +255,8 @@ describe('WashingMachineService - Business Rules', () => {
     it('should NOT include tomorrow when today is available and tomorrow is more expensive', async () => {
       // Mock current time as 10:00 Finnish time (daytime - today available)
       const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -294,10 +309,15 @@ describe('WashingMachineService - Business Rules', () => {
       jest.clearAllMocks();
     });
 
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should include tonight when it is cheaper than today', async () => {
       // Mock current time as 10:00 Finnish time (daytime - today available)
       const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -344,7 +364,8 @@ describe('WashingMachineService - Business Rules', () => {
     it('should NOT include tonight when today is available and tonight is more expensive', async () => {
       // Mock current time as 10:00 Finnish time (daytime - today available)
       const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -389,7 +410,8 @@ describe('WashingMachineService - Business Rules', () => {
     it('should include tonight when today is NOT available (nighttime)', async () => {
       // Mock current time as 22:00 Finnish time (nighttime - no today)
       const mockDate = new Date('2024-07-15T19:00:00.000Z'); // 22:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -441,10 +463,15 @@ describe('WashingMachineService - Business Rules', () => {
       jest.clearAllMocks();
     });
 
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should handle scenario with all three periods available and correct filtering', async () => {
       // Mock current time as 14:00 Finnish time (afternoon - today available)
       const mockDate = new Date('2024-07-15T11:00:00.000Z'); // 14:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
@@ -508,7 +535,8 @@ describe('WashingMachineService - Business Rules', () => {
     it('should handle equal prices correctly (edge case)', async () => {
       // Mock current time as 10:00 Finnish time (daytime)
       const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const todayPrices: ElectricityPriceDto[] = [
         {
