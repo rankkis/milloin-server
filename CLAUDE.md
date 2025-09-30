@@ -53,6 +53,12 @@ test/
 └── jest-e2e.json        # E2E Jest config
 ```
 
+## Version control notes
+
+- Prefer github flow by using feature-branches
+- Always squeeze commits in feature branches before it is merged with master branch
+- Use rebase always to prevent merge commits in history
+
 ## Deployment Notes
 
 - Execute prettier, linter and run tests before production deployment

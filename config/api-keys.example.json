@@ -1,0 +1,9 @@
+{
+  "entsoe": {
+    "apiKey": "your-entsoe-api-key-here"
+  },
+  "supabase": {
+    "url": "your-supabase-project-url",
+    "anonKey": "your-supabase-anon-key"
+  }
+}

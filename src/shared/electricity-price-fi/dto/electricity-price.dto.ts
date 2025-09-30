@@ -1,11 +1,13 @@
 /**
  * Represents electricity price data for a specific time period.
  * Used as the standardized format across all electricity price providers.
+ *
+ * Prices include 25.5% Finnish VAT for consumer-ready pricing.
  */
 export interface ElectricityPriceDto {
   /**
-   * Electricity price in euros per MWh, including taxes.
-   * Example: 0.15 represents 15 cents per kWh or 150 euros per MWh
+   * Electricity price in euros per kWh, including 25.5% VAT.
+   * Example: 0.0522 represents 5.22 cents per kWh
    */
   price: number;
 

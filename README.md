@@ -24,7 +24,15 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Backend service for the milloin-web project. Provides electricity pricing data for Finland using ENTSO-E Transparency Platform API.
+
+## Features
+
+- **Electricity Price Data**: Fetches day-ahead electricity prices from ENTSO-E for Finland
+- **VAT Included**: All prices include 25.5% Finnish VAT for consumer-ready pricing
+- **Database Storage**: Stores prices in Supabase with automatic UPSERT to prevent duplicates
+- **Caching**: Implements intelligent caching to minimize API calls and database queries
+- **Multi-Provider Architecture**: Falls back to SpotHinta API if database is unavailable
 
 ## Project setup
 
