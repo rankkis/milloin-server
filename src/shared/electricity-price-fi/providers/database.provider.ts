@@ -13,14 +13,6 @@ import * as path from 'path';
 import { ElectricityPriceDto } from '../dto/electricity-price.dto';
 import { IElectricityPriceProvider } from '../interfaces/electricity-price-provider.interface';
 
-interface DatabasePriceRecord {
-  price_start_at: string;
-  price_end_at: string;
-  price_eur_kwh: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
 interface DatabaseQueryResult {
   price_start_at: string;
   price_end_at: string;
@@ -75,7 +67,6 @@ export class DatabaseProvider implements IElectricityPriceProvider {
         0,
         0,
       );
-      const nextHour = new Date(currentHour.getTime() + 60 * 60 * 1000);
 
       this.logger.debug(
         `Fetching current price for ${currentHour.toISOString()}`,
@@ -139,7 +130,9 @@ export class DatabaseProvider implements IElectricityPriceProvider {
       const startOfTomorrow = new Date(startOfToday);
       startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
 
-      this.logger.debug(`Fetching today's prices for ${startOfToday.toISOString().split('T')[0]}`);
+      this.logger.debug(
+        `Fetching today's prices for ${startOfToday.toISOString().split('T')[0]}`,
+      );
 
       const { data, error } = await this.supabase
         .from('electricity_prices')
@@ -193,7 +186,9 @@ export class DatabaseProvider implements IElectricityPriceProvider {
       const startOfDayAfter = new Date(startOfTomorrow);
       startOfDayAfter.setDate(startOfDayAfter.getDate() + 1);
 
-      this.logger.debug(`Fetching tomorrow's prices for ${startOfTomorrow.toISOString().split('T')[0]}`);
+      this.logger.debug(
+        `Fetching tomorrow's prices for ${startOfTomorrow.toISOString().split('T')[0]}`,
+      );
 
       const { data, error } = await this.supabase
         .from('electricity_prices')
