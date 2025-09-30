@@ -151,11 +151,12 @@ export class EntsoeDataFetcherService {
     endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
 
     try {
-      const prices = await this.fetchPricesFromEntsoe(startOfDay, endOfTomorrow);
-      await this.storePricesInDatabase(prices);
-      this.logger.log(
-        `Successfully stored ${prices.length} price records`,
+      const prices = await this.fetchPricesFromEntsoe(
+        startOfDay,
+        endOfTomorrow,
       );
+      await this.storePricesInDatabase(prices);
+      this.logger.log(`Successfully stored ${prices.length} price records`);
     } catch (error) {
       this.logger.error('Failed to fetch and store prices', error);
       throw error;
@@ -263,7 +264,9 @@ export class EntsoeDataFetcherService {
           const priceStartTime = new Date(
             startTime.getTime() + position * 60 * 60 * 1000,
           );
-          const priceEndTime = new Date(priceStartTime.getTime() + 60 * 60 * 1000);
+          const priceEndTime = new Date(
+            priceStartTime.getTime() + 60 * 60 * 1000,
+          );
 
           const priceEurMwh = parseFloat(point['price.amount']);
           const priceEurKwh = (priceEurMwh / 1000) * this.VAT_MULTIPLIER; // Convert from EUR/MWh to EUR/kWh and add VAT

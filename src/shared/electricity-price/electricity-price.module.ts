@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ElectricityPriceFiService } from './electricity-price-fi.service';
+import { ElectricityPriceService } from './electricity-price.service';
 import { SpotHintaProvider } from './providers/spot-hinta.provider';
 import { DatabaseProvider } from './providers/database.provider';
 import { EntsoeDataFetcherService } from './services/entsoe-data-fetcher.service';
@@ -11,12 +11,12 @@ import { ElectricityPriceSchedulerService } from './services/electricity-price-s
 @Module({
   imports: [CacheModule.register(), ConfigModule, ScheduleModule.forRoot()],
   providers: [
-    ElectricityPriceFiService,
+    ElectricityPriceService,
     SpotHintaProvider,
     DatabaseProvider,
     EntsoeDataFetcherService,
     ElectricityPriceSchedulerService,
   ],
-  exports: [ElectricityPriceFiService],
+  exports: [ElectricityPriceService],
 })
-export class ElectricityPriceFiModule {}
+export class ElectricityPriceModule {}

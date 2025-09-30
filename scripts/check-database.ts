@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
-import { ElectricityPriceFiService } from '../src/shared/electricity-price-fi/electricity-price-fi.service';
+import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -9,7 +9,7 @@ async function checkDatabase() {
   console.log('🔍 Checking current database status...');
 
   const app = await NestFactory.createApplicationContext(AppModule);
-  const electricityService = app.get(ElectricityPriceFiService);
+  const electricityService = app.get(ElectricityPriceService);
 
   // Also check database directly
   const configPath = path.join(process.cwd(), 'config', 'api-keys.json');

@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
-import { EntsoeDataFetcherService } from '../src/shared/electricity-price-fi/services/entsoe-data-fetcher.service';
+import { EntsoeDataFetcherService } from '../src/shared/electricity-price/services/entsoe-data-fetcher.service';
 
 async function populateDatabase() {
   console.log('🚀 Starting database population with ENTSO-E data...');

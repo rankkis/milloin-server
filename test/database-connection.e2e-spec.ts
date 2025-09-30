@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { DatabaseProvider } from '../src/shared/electricity-price-fi/providers/database.provider';
-import { ElectricityPriceFiModule } from '../src/shared/electricity-price-fi/electricity-price-fi.module';
+import { DatabaseProvider } from '../src/shared/electricity-price/providers/database.provider';
+import { ElectricityPriceModule } from '../src/shared/electricity-price/electricity-price.module';
 
 describe('Database Connection (e2e)', () => {
   let app: INestApplication;
@@ -9,7 +9,7 @@ describe('Database Connection (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [ElectricityPriceFiModule],
+      imports: [ElectricityPriceModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -36,9 +36,15 @@ describe('Database Connection (e2e)', () => {
       } catch (error) {
         // If we get here, check the error message
         if (error.message.includes('Could not find the table')) {
-          fail('Database table "electricity_prices" does not exist. Please run the SQL schema in Supabase.');
-        } else if (error.message.includes('Failed to initialize database connection')) {
-          fail('Supabase connection failed. Check your credentials in config/api-keys.json');
+          fail(
+            'Database table "electricity_prices" does not exist. Please run the SQL schema in Supabase.',
+          );
+        } else if (
+          error.message.includes('Failed to initialize database connection')
+        ) {
+          fail(
+            'Supabase connection failed. Check your credentials in config/api-keys.json',
+          );
         } else {
           fail(`Unexpected database error: ${error.message}`);
         }
@@ -75,7 +81,10 @@ describe('Database Connection (e2e)', () => {
       } catch (error) {
         // Current price should fallback to SpotHinta when database is empty
         // If this fails, there might be an issue with the fallback mechanism
-        console.warn('Current price failed (fallback might not be working):', error.message);
+        console.warn(
+          'Current price failed (fallback might not be working):',
+          error.message,
+        );
       }
     });
   });

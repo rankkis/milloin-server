@@ -2,12 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { ElectricityPriceFiService } from '../src/shared/electricity-price-fi/electricity-price-fi.service';
-import { EntsoeDataFetcherService } from '../src/shared/electricity-price-fi/services/entsoe-data-fetcher.service';
+import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
+import { EntsoeDataFetcherService } from '../src/shared/electricity-price/services/entsoe-data-fetcher.service';
 
 describe('ElectricityPrice (e2e)', () => {
   let app: INestApplication;
-  let electricityPriceService: ElectricityPriceFiService;
+  let electricityPriceService: ElectricityPriceService;
   let entsoeDataFetcher: EntsoeDataFetcherService;
 
   beforeAll(async () => {
@@ -18,8 +18,8 @@ describe('ElectricityPrice (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    electricityPriceService = moduleFixture.get<ElectricityPriceFiService>(
-      ElectricityPriceFiService,
+    electricityPriceService = moduleFixture.get<ElectricityPriceService>(
+      ElectricityPriceService,
     );
     entsoeDataFetcher = moduleFixture.get<EntsoeDataFetcherService>(
       EntsoeDataFetcherService,
@@ -34,14 +34,14 @@ describe('ElectricityPrice (e2e)', () => {
     it('should be able to fetch and store today prices from ENTSO-E', async () => {
       // This test verifies the complete data flow: ENTSO-E API -> Database
       await expect(
-        entsoeDataFetcher.fetchAndStoreTodayPrices()
+        entsoeDataFetcher.fetchAndStoreTodayPrices(),
       ).resolves.not.toThrow();
     }, 30000); // 30 second timeout for API call
 
     it('should handle tomorrow prices gracefully (might not be available)', async () => {
       // This test verifies tomorrow prices are handled correctly
       await expect(
-        entsoeDataFetcher.fetchAndStoreTomorrowPrices()
+        entsoeDataFetcher.fetchAndStoreTomorrowPrices(),
       ).resolves.not.toThrow();
     }, 30000);
   });
@@ -74,7 +74,7 @@ describe('ElectricityPrice (e2e)', () => {
         expect(todayPrices.length).toBeLessThanOrEqual(24); // Max 24 hours
 
         // Verify each price has required structure
-        todayPrices.forEach(price => {
+        todayPrices.forEach((price) => {
           expect(price.price).toBeDefined();
           expect(typeof price.price).toBe('number');
           expect(price.startDate).toBeDefined();
@@ -125,7 +125,7 @@ describe('ElectricityPrice (e2e)', () => {
       // We can't easily simulate database failure in e2e test,
       // but we can verify the service doesn't throw unhandled errors
       await expect(
-        electricityPriceService.getCurrentPrices()
+        electricityPriceService.getCurrentPrices(),
       ).resolves.not.toThrow();
     });
   });

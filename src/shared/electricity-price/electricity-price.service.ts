@@ -5,10 +5,10 @@ import { SpotHintaProvider } from './providers/spot-hinta.provider';
 import { DatabaseProvider } from './providers/database.provider';
 
 @Injectable()
-export class ElectricityPriceFiService {
+export class ElectricityPriceService {
   private provider: IElectricityPriceProvider;
   private fallbackProvider: IElectricityPriceProvider;
-  private readonly logger = new Logger(ElectricityPriceFiService.name);
+  private readonly logger = new Logger(ElectricityPriceService.name);
 
   constructor(
     private spotHintaProvider: SpotHintaProvider,

@@ -1,26 +1,26 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { ElectricityPriceFiService } from '../src/shared/electricity-price-fi/electricity-price-fi.service';
-import { ElectricityPriceFiModule } from '../src/shared/electricity-price-fi/electricity-price-fi.module';
+import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
+import { ElectricityPriceModule } from '../src/shared/electricity-price/electricity-price.module';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 
 describe('Data Population and Retrieval (e2e)', () => {
   let app: INestApplication;
-  let electricityPriceService: ElectricityPriceFiService;
+  let electricityPriceService: ElectricityPriceService;
   let supabase: any;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [ElectricityPriceFiModule],
+      imports: [ElectricityPriceModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    electricityPriceService = moduleFixture.get<ElectricityPriceFiService>(
-      ElectricityPriceFiService,
+    electricityPriceService = moduleFixture.get<ElectricityPriceService>(
+      ElectricityPriceService,
     );
 
     // Initialize Supabase client for test data setup
@@ -31,10 +31,7 @@ describe('Data Population and Retrieval (e2e)', () => {
 
   afterAll(async () => {
     // Clean up test data
-    await supabase
-      .from('electricity_prices')
-      .delete()
-      .eq('source', 'test');
+    await supabase.from('electricity_prices').delete().eq('source', 'test');
 
     await app.close();
   });
@@ -78,7 +75,10 @@ describe('Data Population and Retrieval (e2e)', () => {
       expect(currentPrice.startDate).toBeDefined();
       expect(currentPrice.endDate).toBeDefined();
 
-      console.log('✅ Current price retrieved successfully:', currentPrice.price);
+      console.log(
+        '✅ Current price retrieved successfully:',
+        currentPrice.price,
+      );
     });
 
     it('should retrieve today prices from database', async () => {
@@ -87,7 +87,9 @@ describe('Data Population and Retrieval (e2e)', () => {
       expect(Array.isArray(todayPrices)).toBe(true);
 
       if (todayPrices.length > 0) {
-        console.log(`✅ Retrieved ${todayPrices.length} today prices from database`);
+        console.log(
+          `✅ Retrieved ${todayPrices.length} today prices from database`,
+        );
 
         // Verify price structure
         todayPrices.forEach((price, index) => {
@@ -113,7 +115,9 @@ describe('Data Population and Retrieval (e2e)', () => {
       expect(futurePrices).toBeDefined();
       expect(Array.isArray(futurePrices)).toBe(true);
 
-      console.log(`✅ Retrieved ${futurePrices.length} future prices from database`);
+      console.log(
+        `✅ Retrieved ${futurePrices.length} future prices from database`,
+      );
 
       if (futurePrices.length > 0) {
         // Verify all future prices are from current hour onwards
@@ -130,9 +134,14 @@ describe('Data Population and Retrieval (e2e)', () => {
 
         futurePrices.forEach((price, index) => {
           const priceTime = new Date(price.startDate);
-          expect(priceTime.getTime()).toBeGreaterThanOrEqual(currentHour.getTime());
-          if (index < 5) { // Log first 5 prices
-            console.log(`  ${priceTime.toISOString()}: €${price.price.toFixed(4)}/kWh`);
+          expect(priceTime.getTime()).toBeGreaterThanOrEqual(
+            currentHour.getTime(),
+          );
+          if (index < 5) {
+            // Log first 5 prices
+            console.log(
+              `  ${priceTime.toISOString()}: €${price.price.toFixed(4)}/kWh`,
+            );
           }
         });
       }
@@ -156,8 +165,12 @@ describe('Data Population and Retrieval (e2e)', () => {
       console.log('✅ Service layer: Working');
       console.log('✅ Fallback mechanism: Available');
       console.log('');
-      console.log('🕐 Scheduled data fetch: Will run daily at 14:15 Finnish time');
-      console.log('🚀 Startup data fetch: Configured (will work when ENTSO-E API is available)');
+      console.log(
+        '🕐 Scheduled data fetch: Will run daily at 14:15 Finnish time',
+      );
+      console.log(
+        '🚀 Startup data fetch: Configured (will work when ENTSO-E API is available)',
+      );
       console.log('');
       console.log('Your ENTSO-E integration is ready! 🎯');
 
