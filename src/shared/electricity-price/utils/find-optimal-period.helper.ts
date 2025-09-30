@@ -14,7 +14,7 @@ export interface OptimalPeriodResult {
   priceAvg: number;
   /** Price category classification */
   priceCategory: PriceCategory;
-  /** Estimated total price including tariffs (cents/kWh) */
+  /** Estimated total price including tariffs for the whole period (cents) */
   estimatedTotalPrice: number;
 }
 
@@ -86,11 +86,10 @@ export function findOptimalPeriod(
       const priceInCents = Math.round(averagePrice * 100 * 100) / 100; // Convert euros to cents and round to 2 decimal places
 
       // Calculate estimated total price using actual hourly prices + tariffs
-      const totalPriceWithTariffs =
-        slot.reduce((sum, hour) => {
-          const hourPriceInCents = hour.price * 100; // Convert to cents
-          return sum + hourPriceInCents + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
-        }, 0) / slot.length;
+      const totalPriceWithTariffs = slot.reduce((sum, hour) => {
+        const hourPriceInCents = hour.price * 100; // Convert to cents
+        return sum + hourPriceInCents + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
+      }, 0);
 
       optimalSlots.push({
         startTime: slot[0].startDate,

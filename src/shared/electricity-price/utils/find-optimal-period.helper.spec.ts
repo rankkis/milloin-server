@@ -337,8 +337,8 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 2);
 
       // Each hour: 3 + 7.2 = 10.2 c/kWh
-      // Average: 10.2 c/kWh
-      expect(result[0].estimatedTotalPrice).toBe(10.2);
+      // Total for 2 hours: 10.2 * 2 = 20.4 cents
+      expect(result[0].estimatedTotalPrice).toBe(20.4);
     });
 
     it('should calculate total price using actual hourly prices, not average', () => {
@@ -351,8 +351,8 @@ describe('findOptimalPeriod', () => {
 
       // Average spot price: 3 c/kWh
       expect(result[0].priceAvg).toBe(3);
-      // Total with tariffs: (9.2 + 11.2) / 2 = 10.2 c/kWh
-      expect(result[0].estimatedTotalPrice).toBe(10.2);
+      // Total with tariffs: 9.2 + 11.2 = 20.4 cents
+      expect(result[0].estimatedTotalPrice).toBe(20.4);
     });
 
     it('should calculate correct total price for 4-hour period', () => {
@@ -367,20 +367,20 @@ describe('findOptimalPeriod', () => {
 
       // Average spot: (1 + 2 + 3 + 4) / 4 = 2.5 c/kWh
       expect(result[0].priceAvg).toBe(2.5);
-      // Average total: (8.2 + 9.2 + 10.2 + 11.2) / 4 = 9.7 c/kWh
-      expect(result[0].estimatedTotalPrice).toBe(9.7);
+      // Total for 4 hours: 8.2 + 9.2 + 10.2 + 11.2 = 38.8 cents
+      expect(result[0].estimatedTotalPrice).toBe(38.8);
     });
 
     it('should round estimated total price to 2 decimal places', () => {
       const prices: ElectricityPriceDto[] = [
-        createMockPrice(0, 0.01111), // Creates decimal precision scenario
-        createMockPrice(1, 0.02222),
+        createMockPrice(0, 0.01111), // 1.111 + 7.2 = 8.311
+        createMockPrice(1, 0.02222), // 2.222 + 7.2 = 9.422
       ];
 
       const result = findOptimalPeriod(prices, 2);
 
-      // Result should be rounded to 2 decimals
-      expect(result[0].estimatedTotalPrice).toBeCloseTo(8.87, 2);
+      // Total for 2 hours: 8.311 + 9.422 = 17.733, rounded to 17.73 cents
+      expect(result[0].estimatedTotalPrice).toBeCloseTo(17.73, 2);
     });
 
     it('should handle zero spot price correctly', () => {
@@ -392,7 +392,7 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 2);
 
       expect(result[0].priceAvg).toBe(0);
-      expect(result[0].estimatedTotalPrice).toBe(7.2); // Only tariffs
+      expect(result[0].estimatedTotalPrice).toBe(14.4); // Only tariffs: 7.2 * 2 hours
     });
 
     it('should handle negative spot prices correctly', () => {
@@ -404,7 +404,7 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 2);
 
       expect(result[0].priceAvg).toBe(-1);
-      expect(result[0].estimatedTotalPrice).toBe(6.2); // Tariffs offset negative price
+      expect(result[0].estimatedTotalPrice).toBe(12.4); // Total for 2 hours: 6.2 * 2
     });
   });
 });
