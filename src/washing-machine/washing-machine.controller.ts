@@ -22,7 +22,8 @@ export class WashingMachineController {
       Returns optimal times to run a washing machine based on Finnish electricity spot prices.
 
       **How it works:**
-      - Fetches real-time electricity prices from spot-hinta.fi API (Nord Pool data)
+      - Fetches electricity prices from ENTSO-E Transparency Platform (with spot-hinta.fi as fallback)
+      - Prices include 25.5% Finnish VAT for accurate consumer pricing
       - Calculates optimal 2-hour consecutive time slots for washing machine cycles
       - Returns separate recommendations for today, tonight, and tomorrow
       - Only shows options that are available and cost-effective
@@ -64,7 +65,7 @@ export class WashingMachineController {
   })
   @ApiServiceUnavailableResponse({
     description:
-      'External electricity price API (spot-hinta.fi) is unavailable. This can occur when the Finnish electricity price API is down or experiencing issues.',
+      'Electricity price service is unavailable. This can occur when both ENTSO-E API and fallback provider (spot-hinta.fi) are down or experiencing issues.',
   })
   async getForecast(
     @Query('hours') hours?: string,
