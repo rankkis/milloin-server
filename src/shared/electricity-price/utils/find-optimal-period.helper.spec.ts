@@ -34,7 +34,7 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 2);
 
       expect(result).toHaveLength(3); // 3 possible 2-hour periods
-      expect(result[0].priceAvg).toBe(12.5); // Cheapest: (0.1 + 0.15) / 2 * 100 = 12.5 cents
+      expect(result[0].priceAvg).toBe(19.7); // Cheapest: ((0.1 + 7.2) + (0.15 + 7.2)) / 2 = 19.7 cents (includes tariffs)
       expect(result[0].startTime).toBe(prices[0].startDate);
       expect(result[0].endTime).toBe(prices[1].endDate);
     });
@@ -54,7 +54,7 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 4);
 
       expect(result).toHaveLength(5); // 5 possible 4-hour periods
-      expect(result[0].priceAvg).toBe(10); // (0.1 * 4) / 4 * 100 = 10 cents
+      expect(result[0].priceAvg).toBe(17.2); // ((0.1 + 7.2) * 4) / 4 = 17.2 cents (includes tariffs)
       expect(result[0].startTime).toBe(prices[0].startDate);
       expect(result[0].endTime).toBe(prices[3].endDate);
     });
@@ -90,11 +90,11 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 2);
 
       expect(result).toHaveLength(5);
-      expect(result[0].priceAvg).toBe(10); // Cheapest
-      expect(result[1].priceAvg).toBe(15);
-      expect(result[2].priceAvg).toBe(20);
-      expect(result[3].priceAvg).toBe(25);
-      expect(result[4].priceAvg).toBe(30); // Most expensive
+      expect(result[0].priceAvg).toBe(17.2); // Cheapest: [0.1, 0.1] → (17.2 + 17.2) / 2 = 17.2 cents
+      expect(result[1].priceAvg).toBe(22.2); // [0.2, 0.1] or [0.1, 0.2] → (17.2 + 27.2) / 2 = 22.2 cents
+      expect(result[2].priceAvg).toBe(27.2); // [0.2, 0.2] → (27.2 + 27.2) / 2 = 27.2 cents
+      expect(result[3].priceAvg).toBe(32.2); // [0.3, 0.2] or [0.2, 0.3] → (27.2 + 37.2) / 2 = 32.2 cents
+      expect(result[4].priceAvg).toBe(37.2); // Most expensive: [0.3, 0.3] → (37.2 + 37.2) / 2 = 37.2 cents
     });
 
     it('should respect maxResults parameter', () => {
@@ -166,7 +166,7 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 4);
 
       expect(result).toHaveLength(1);
-      expect(result[0].priceAvg).toBe(10);
+      expect(result[0].priceAvg).toBe(17.2); // ((0.1 + 7.2) * 4) / 4 = 17.2 cents (includes tariffs)
     });
   });
 
@@ -179,7 +179,7 @@ describe('findOptimalPeriod', () => {
 
       const result = findOptimalPeriod(prices, 2);
 
-      expect(result[0].priceAvg).toBe(12.35); // 0.12345 * 100 = 12.345, rounded to 12.35
+      expect(result[0].priceAvg).toBe(19.55); // ((0.12345 + 7.2) * 2) / 2 = 19.5445, rounded to 19.55 (includes tariffs)
     });
 
     it('should round prices to 2 decimal places', () => {
@@ -190,7 +190,7 @@ describe('findOptimalPeriod', () => {
 
       const result = findOptimalPeriod(prices, 2);
 
-      expect(result[0].priceAvg).toBe(12.35); // Should round to 2 decimals
+      expect(result[0].priceAvg).toBe(19.55); // ((0.123456 + 7.2) * 2) / 2 = 19.546912, rounded to 19.55 (includes tariffs)
     });
 
     it('should calculate average price correctly for multi-hour periods', () => {
@@ -202,7 +202,7 @@ describe('findOptimalPeriod', () => {
 
       const result = findOptimalPeriod(prices, 3);
 
-      expect(result[0].priceAvg).toBe(20); // ((0.1 + 0.2 + 0.3) / 3) * 100 = 20 cents
+      expect(result[0].priceAvg).toBe(27.2); // ((0.1 + 7.2) + (0.2 + 7.2) + (0.3 + 7.2)) / 3 = 27.2 cents (includes tariffs)
     });
   });
 
@@ -217,7 +217,7 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 1);
 
       expect(result).toHaveLength(3);
-      expect(result[0].priceAvg).toBe(10); // Cheapest single hour
+      expect(result[0].priceAvg).toBe(17.2); // Cheapest single hour: (0.1 + 7.2) = 17.2 cents (includes tariffs)
     });
 
     it('should handle period equal to total data length', () => {
@@ -229,7 +229,7 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 2);
 
       expect(result).toHaveLength(1);
-      expect(result[0].priceAvg).toBe(15); // (0.1 + 0.2) / 2 * 100
+      expect(result[0].priceAvg).toBe(22.2); // ((0.1 + 7.2) + (0.2 + 7.2)) / 2 = 22.2 cents (includes tariffs)
     });
 
     it('should handle identical prices', () => {
@@ -243,8 +243,8 @@ describe('findOptimalPeriod', () => {
       const result = findOptimalPeriod(prices, 2);
 
       expect(result).toHaveLength(3);
-      // All periods should have the same price
-      expect(result.every((r) => r.priceAvg === 15)).toBe(true);
+      // All periods should have the same price: (0.15 + 7.2) = 22.2 cents (includes tariffs)
+      expect(result.every((r) => r.priceAvg === 22.2)).toBe(true);
     });
 
     it('should handle zero prices', () => {
@@ -256,7 +256,7 @@ describe('findOptimalPeriod', () => {
 
       const result = findOptimalPeriod(prices, 2);
 
-      expect(result[0].priceAvg).toBe(0); // Zero should be handled correctly
+      expect(result[0].priceAvg).toBe(7.2); // Zero spot price: ((0 + 7.2) * 2) / 2 = 7.2 cents (only tariffs)
     });
 
     it('should handle negative prices (when producers pay consumers)', () => {
@@ -268,7 +268,7 @@ describe('findOptimalPeriod', () => {
 
       const result = findOptimalPeriod(prices, 2);
 
-      expect(result[0].priceAvg).toBe(-5); // Negative prices should work correctly
+      expect(result[0].priceAvg).toBe(2.2); // Negative spot price: ((-0.05 + 7.2) * 2) / 2 = 2.2 cents (includes tariffs)
     });
   });
 
@@ -287,124 +287,123 @@ describe('findOptimalPeriod', () => {
 
     it('should include price category in results', () => {
       const prices: ElectricityPriceDto[] = [
-        createMockPrice(0, 0.01), // 1 cent
-        createMockPrice(1, 0.01), // avg 1 cent (VERY_CHEAP)
-        createMockPrice(2, 0.03), // avg 2 cents (VERY_CHEAP)
-        createMockPrice(3, 0.03), // avg 3 cents (CHEAP)
-        createMockPrice(4, 0.07), // avg 5 cents (NORMAL)
-        createMockPrice(5, 0.07), // avg 7 cents (NORMAL)
+        createMockPrice(0, 0.01), // 1 cent spot + 7.2 = 8.2 cents (NORMAL)
+        createMockPrice(1, 0.01),
+        createMockPrice(2, 0.03), // 3 cents spot + 7.2 = 10.2 cents (EXPENSIVE)
+        createMockPrice(3, 0.03),
+        createMockPrice(4, 0.07), // 7 cents spot + 7.2 = 14.2 cents (EXPENSIVE)
+        createMockPrice(5, 0.07),
       ];
 
       const result = findOptimalPeriod(prices, 2);
 
-      // After sorting by price: 1¢ (VERY_CHEAP), 2¢ (VERY_CHEAP), 3¢ (CHEAP), 5¢ (NORMAL), 7¢ (NORMAL)
-      expect(result[0].priceCategory).toBe(PriceCategory.VERY_CHEAP); // 1¢
-      expect(result[1].priceCategory).toBe(PriceCategory.VERY_CHEAP); // 2¢
-      expect(result[2].priceCategory).toBe(PriceCategory.CHEAP); // 3¢
-      expect(result[3].priceCategory).toBe(PriceCategory.NORMAL); // 5¢
-      expect(result[4].priceCategory).toBe(PriceCategory.NORMAL); // 7¢
+      // After sorting by price (with tariffs): 8.2¢, 9.2¢, 10.2¢, 12.2¢, 14.2¢
+      expect(result[0].priceCategory).toBe(PriceCategory.NORMAL); // 8.2¢
+      expect(result[1].priceCategory).toBe(PriceCategory.NORMAL); // 9.2¢ avg of 8.2 and 10.2
+      expect(result[2].priceCategory).toBe(PriceCategory.EXPENSIVE); // 10.2¢
+      expect(result[3].priceCategory).toBe(PriceCategory.EXPENSIVE); // 12.2¢ avg of 10.2 and 14.2
+      expect(result[4].priceCategory).toBe(PriceCategory.EXPENSIVE); // 14.2¢
     });
 
     it('should handle edge case prices for category boundaries', () => {
       const prices: ElectricityPriceDto[] = [
-        createMockPrice(0, 0.024),
-        createMockPrice(1, 0.024), // avg 2.4 c/kWh - VERY_CHEAP
-        createMockPrice(2, 0.025),
-        createMockPrice(3, 0.025), // avg 2.5 c/kWh - CHEAP
-        createMockPrice(4, 0.05),
-        createMockPrice(5, 0.05), // avg 5.0 c/kWh - NORMAL
+        createMockPrice(0, 0.024), // 2.4 cents spot + 7.2 = 9.6 cents (NORMAL)
+        createMockPrice(1, 0.024),
+        createMockPrice(2, 0.025), // 2.5 cents spot + 7.2 = 9.7 cents (NORMAL)
+        createMockPrice(3, 0.025),
+        createMockPrice(4, 0.05), // 5.0 cents spot + 7.2 = 12.2 cents (EXPENSIVE)
+        createMockPrice(5, 0.05),
       ];
 
       const result = findOptimalPeriod(prices, 2);
 
-      // After sorting by price: 2.4¢ (VERY_CHEAP), 2.45¢ (VERY_CHEAP), 2.5¢ (CHEAP), ..., 5.0¢ (NORMAL)
-      expect(result[0].priceCategory).toBe(PriceCategory.VERY_CHEAP); // 2.4¢
-      expect(result[1].priceCategory).toBe(PriceCategory.VERY_CHEAP); // 2.45¢ (avg of 2.4 and 2.5)
-      expect(result[2].priceCategory).toBe(PriceCategory.CHEAP); // 2.5¢
-      // Skip result[3] which is 3.75¢ (avg of 2.5 and 5.0)
-      expect(result[4].priceCategory).toBe(PriceCategory.NORMAL); // 5.0¢
+      // After sorting by price (with tariffs): 9.6¢, 9.65¢, 9.7¢, 10.95¢, 12.2¢
+      expect(result[0].priceCategory).toBe(PriceCategory.NORMAL); // 9.6¢
+      expect(result[1].priceCategory).toBe(PriceCategory.NORMAL); // 9.65¢ avg of 9.6 and 9.7
+      expect(result[2].priceCategory).toBe(PriceCategory.NORMAL); // 9.7¢
+      expect(result[3].priceCategory).toBe(PriceCategory.EXPENSIVE); // 10.95¢ avg of 9.7 and 12.2
+      expect(result[4].priceCategory).toBe(PriceCategory.EXPENSIVE); // 12.2¢
     });
   });
-  describe('estimated total price calculation', () => {
+  describe('pricePoints generation', () => {
     // Tariff constants: exchange 6.7 + margin 0.5 = 7.2 c/kWh total
 
-    it('should calculate total price with tariffs for single period', () => {
+    it('should generate 15-minute price points for each hour', () => {
       const prices: ElectricityPriceDto[] = [
         createMockPrice(0, 0.03), // 3 c/kWh
-        createMockPrice(1, 0.03), // 3 c/kWh
+        createMockPrice(1, 0.04), // 4 c/kWh
       ];
 
       const result = findOptimalPeriod(prices, 2);
 
-      // Each hour: 3 + 7.2 = 10.2 c/kWh
-      // Total for 2 hours: 10.2 * 2 = 20.4 cents
-      expect(result[0].estimatedTotalPrice).toBe(20.4);
+      // 2 hours = 8 quarters (4 per hour)
+      expect(result[0].pricePoints).toHaveLength(8);
+
+      // First quarter should start at the beginning of the period
+      expect(result[0].pricePoints[0].startTime).toBe(result[0].startTime);
+
+      // Each quarter should be 15 minutes
+      const firstQuarter = result[0].pricePoints[0];
+      const firstStart = new Date(firstQuarter.startTime);
+      const firstEnd = new Date(firstQuarter.endTime);
+      expect((firstEnd.getTime() - firstStart.getTime()) / 60000).toBe(15);
+
+      // Prices should include VAT and tariffs
+      // First hour: 3 c/kWh + 7.2 = 10.2 c/kWh
+      expect(result[0].pricePoints[0].price).toBe(10.2);
+      expect(result[0].pricePoints[1].price).toBe(10.2);
+      expect(result[0].pricePoints[2].price).toBe(10.2);
+      expect(result[0].pricePoints[3].price).toBe(10.2);
+
+      // Second hour: 4 c/kWh + 7.2 = 11.2 c/kWh
+      expect(result[0].pricePoints[4].price).toBe(11.2);
+      expect(result[0].pricePoints[5].price).toBe(11.2);
+      expect(result[0].pricePoints[6].price).toBe(11.2);
+      expect(result[0].pricePoints[7].price).toBe(11.2);
     });
 
-    it('should calculate total price using actual hourly prices, not average', () => {
-      const prices: ElectricityPriceDto[] = [
-        createMockPrice(0, 0.02), // 2 c/kWh -> 2 + 7.2 = 9.2
-        createMockPrice(1, 0.04), // 4 c/kWh -> 4 + 7.2 = 11.2
-      ];
+    it('should generate consecutive 15-minute intervals', () => {
+      const prices: ElectricityPriceDto[] = [createMockPrice(0, 0.03)];
 
-      const result = findOptimalPeriod(prices, 2);
+      const result = findOptimalPeriod(prices, 1);
 
-      // Average spot price: 3 c/kWh
-      expect(result[0].priceAvg).toBe(3);
-      // Total with tariffs: 9.2 + 11.2 = 20.4 cents
-      expect(result[0].estimatedTotalPrice).toBe(20.4);
+      // 1 hour = 4 quarters
+      expect(result[0].pricePoints).toHaveLength(4);
+
+      // Each quarter should connect to the next
+      for (let i = 0; i < result[0].pricePoints.length - 1; i++) {
+        expect(result[0].pricePoints[i].endTime).toBe(
+          result[0].pricePoints[i + 1].startTime,
+        );
+      }
     });
 
-    it('should calculate correct total price for 4-hour period', () => {
-      const prices: ElectricityPriceDto[] = [
-        createMockPrice(0, 0.01), // 1 + 7.2 = 8.2
-        createMockPrice(1, 0.02), // 2 + 7.2 = 9.2
-        createMockPrice(2, 0.03), // 3 + 7.2 = 10.2
-        createMockPrice(3, 0.04), // 4 + 7.2 = 11.2
-      ];
-
-      const result = findOptimalPeriod(prices, 4);
-
-      // Average spot: (1 + 2 + 3 + 4) / 4 = 2.5 c/kWh
-      expect(result[0].priceAvg).toBe(2.5);
-      // Total for 4 hours: 8.2 + 9.2 + 10.2 + 11.2 = 38.8 cents
-      expect(result[0].estimatedTotalPrice).toBe(38.8);
-    });
-
-    it('should round estimated total price to 2 decimal places', () => {
-      const prices: ElectricityPriceDto[] = [
-        createMockPrice(0, 0.01111), // 1.111 + 7.2 = 8.311
-        createMockPrice(1, 0.02222), // 2.222 + 7.2 = 9.422
-      ];
-
-      const result = findOptimalPeriod(prices, 2);
-
-      // Total for 2 hours: 8.311 + 9.422 = 17.733, rounded to 17.73 cents
-      expect(result[0].estimatedTotalPrice).toBeCloseTo(17.73, 2);
-    });
-
-    it('should handle zero spot price correctly', () => {
+    it('should handle zero spot price correctly in price points', () => {
       const prices: ElectricityPriceDto[] = [
         createMockPrice(0, 0), // 0 + 7.2 = 7.2
-        createMockPrice(1, 0), // 0 + 7.2 = 7.2
       ];
 
-      const result = findOptimalPeriod(prices, 2);
+      const result = findOptimalPeriod(prices, 1);
 
-      expect(result[0].priceAvg).toBe(0);
-      expect(result[0].estimatedTotalPrice).toBe(14.4); // Only tariffs: 7.2 * 2 hours
+      expect(result[0].priceAvg).toBe(7.2); // Zero spot price: (0 + 7.2) = 7.2 cents (only tariffs)
+      // All quarters should have tariff price only
+      result[0].pricePoints.forEach((point) => {
+        expect(point.price).toBe(7.2);
+      });
     });
 
-    it('should handle negative spot prices correctly', () => {
+    it('should handle negative spot prices correctly in price points', () => {
       const prices: ElectricityPriceDto[] = [
         createMockPrice(0, -0.01), // -1 + 7.2 = 6.2
-        createMockPrice(1, -0.01), // -1 + 7.2 = 6.2
       ];
 
-      const result = findOptimalPeriod(prices, 2);
+      const result = findOptimalPeriod(prices, 1);
 
-      expect(result[0].priceAvg).toBe(-1);
-      expect(result[0].estimatedTotalPrice).toBe(12.4); // Total for 2 hours: 6.2 * 2
+      expect(result[0].priceAvg).toBe(6.2); // Negative spot price: (-0.01 * 100) + 7.2 = 6.2 cents (includes tariffs)
+      // All quarters should have negative price + tariff
+      result[0].pricePoints.forEach((point) => {
+        expect(point.price).toBe(6.2);
+      });
     });
   });
 });

@@ -37,11 +37,12 @@ async function bootstrap() {
       .setTitle('Milloin Server API')
       .setDescription(
         'Backend service for optimal electricity usage timing in Finland. ' +
-          'This API helps users determine the cheapest times to run appliances like washing machines ' +
-          'based on real-time Finnish electricity spot prices from Nord Pool via spot-hinta.fi API.',
+          'This API helps users determine the cheapest times to run appliances like washing machines and charge EVs ' +
+          'based on real-time Finnish electricity spot prices from ENTSO-E Transparency Platform.',
       )
       .setVersion('1.0')
-      .addTag('washing-machine', 'Washing machine optimal timing endpoints')
+      .addTag('wash-laundry', 'Laundry washing optimal timing endpoints')
+      .addTag('charge-ev', 'EV charging optimal timing endpoints')
       .addServer('http://localhost:3000', 'Development server')
       .build();
 

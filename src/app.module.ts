@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { WashingMachineModule } from './washing-machine/washing-machine.module';
+import { WashLaundryModule } from './wash-laundry/wash-laundry.module';
 import { ChargeEvModule } from './charge-ev/charge-ev.module';
 
 @Module({
-  imports: [WashingMachineModule, ChargeEvModule],
+  imports: [WashLaundryModule, ChargeEvModule],
   controllers: [],
   providers: [],
 })

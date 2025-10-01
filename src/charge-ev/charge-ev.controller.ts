@@ -13,11 +13,11 @@ import { ChargeForecastDto } from './dto/charge-forecast.dto';
 export class ChargeEvController {
   constructor(private readonly chargeEvService: ChargeEvService) {}
 
-  @Get('forecast')
+  @Get('optimal-schedule')
   @ApiOperation({
-    summary: 'Get optimal EV charging time forecast',
+    summary: 'Get optimal EV charging schedule',
     description: `
-      Returns optimal times to charge an electric vehicle based on Finnish electricity spot prices.
+      Returns optimal schedule for charging an electric vehicle based on Finnish electricity spot prices.
 
       **How it works:**
       - Fetches electricity prices from ENTSO-E Transparency Platform (with spot-hinta.fi as fallback)
@@ -40,14 +40,14 @@ export class ChargeEvController {
   @ApiResponse({
     status: 200,
     description:
-      'Successful forecast response with optimal EV charging times. Always returns next12Hours with the cheapest 4-hour period. Optionally includes extended period if cheaper option exists in all available data.',
+      'Successful response with optimal EV charging schedule. Always returns next12Hours with the cheapest 4-hour period. Optionally includes extended period if cheaper option exists in all available data.',
     type: ChargeForecastDto,
   })
   @ApiServiceUnavailableResponse({
     description:
       'Electricity price service is unavailable. This can occur when both ENTSO-E API and fallback provider (spot-hinta.fi) are down or experiencing issues.',
   })
-  async getForecast(): Promise<ChargeForecastDto> {
-    return this.chargeEvService.getForecast();
+  async getOptimalSchedule(): Promise<ChargeForecastDto> {
+    return this.chargeEvService.getOptimalSchedule();
   }
 }

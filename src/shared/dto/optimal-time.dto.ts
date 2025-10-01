@@ -1,6 +1,30 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PriceCategory } from './price-category.enum';
 
+export class PricePointDto {
+  @ApiProperty({
+    description: 'Start time of the price point (ISO 8601 format)',
+    example: '2025-10-01T02:00:00.000Z',
+    type: String,
+  })
+  startTime: string;
+
+  @ApiProperty({
+    description: 'End time of the price point (ISO 8601 format)',
+    example: '2025-10-01T02:15:00.000Z',
+    type: String,
+  })
+  endTime: string;
+
+  @ApiProperty({
+    description: 'Electricity price including VAT (cents/kWh)',
+    example: 3.45,
+    type: Number,
+    minimum: 0,
+  })
+  price: number;
+}
+
 export class OptimalTimeDto {
   @ApiProperty({
     description: 'Start time of the optimal period (ISO 8601 format)',
@@ -18,8 +42,8 @@ export class OptimalTimeDto {
 
   @ApiProperty({
     description:
-      'Average electricity price for this period (cents/kWh). Duration depends on context (2 hours for washing, 4 hours for EV charging, etc.)',
-    example: 3.45,
+      'Average electricity price for this period including VAT and tariffs (cents/kWh). Calculated from 15-minute price points. Duration depends on context (2 hours for washing, 4 hours for EV charging, etc.)',
+    example: 10.65,
     type: Number,
     minimum: 0,
   })
@@ -35,32 +59,20 @@ export class OptimalTimeDto {
 
   @ApiProperty({
     description:
-      'Estimated total electricity price for this period (cents/kWh). Includes spot price + exchange tariff (6.7 c/kWh) + margin tariff (0.5 c/kWh). Calculated using actual hourly prices, not the average.',
-    example: 10.65,
-    type: Number,
-    minimum: 0,
+      'Array of price points at 15-minute intervals between startTime and endTime. Each point includes the quarter-hour period and price with VAT.',
+    type: [PricePointDto],
+    example: [
+      {
+        startTime: '2025-10-01T02:00:00.000Z',
+        endTime: '2025-10-01T02:15:00.000Z',
+        price: 3.45,
+      },
+      {
+        startTime: '2025-10-01T02:15:00.000Z',
+        endTime: '2025-10-01T02:30:00.000Z',
+        price: 3.52,
+      },
+    ],
   })
-  estimatedTotalPrice: number;
-
-  @ApiProperty({
-    description:
-      'Potential amount saved compared to current hour price (cents/kWh). Null when current hour is optimal.',
-    example: 1.25,
-    type: Number,
-    required: false,
-    nullable: true,
-  })
-  potentialSavings: number | null;
-
-  @ApiProperty({
-    description:
-      'Potential percentage savings compared to current hour price. Null when current hour is optimal.',
-    example: 26.32,
-    type: Number,
-    minimum: 0,
-    maximum: 100,
-    required: false,
-    nullable: true,
-  })
-  potentialSavingsPercentage: number | null;
+  pricePoints: PricePointDto[];
 }

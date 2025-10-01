@@ -12,7 +12,7 @@ describe('ChargeEvController', () => {
         {
           provide: ChargeEvService,
           useValue: {
-            getForecast: jest.fn(),
+            getOptimalSchedule: jest.fn(),
           },
         },
       ],

@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { OptimalTimeDto } from '../../shared/dto/optimal-time.dto';
 import { ForecastDefaultsDto } from '../../shared/dto/forecast-defaults.dto';
 
-export class WashingForecastDto {
+export class WashLaundryForecastDto {
   @ApiProperty({
     description:
       'Cost and timing if starting washing right now (from current hour). Included when enough price data is available.',

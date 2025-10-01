@@ -12,7 +12,7 @@ export class ChargeEvService {
     private readonly electricityPriceService: ElectricityPriceService,
   ) {}
 
-  async getForecast(): Promise<ChargeForecastDto> {
+  async getOptimalSchedule(): Promise<ChargeForecastDto> {
     const chargingDurationHours = 4; // EV charging period
 
     // Get price data for today and tomorrow
@@ -59,11 +59,7 @@ export class ChargeEvService {
       throw new Error('Unable to calculate current hour pricing');
     }
 
-    const nowOptimal: OptimalTimeDto = {
-      ...nowOptimalResult[0],
-      potentialSavings: null, // No savings when starting now
-      potentialSavingsPercentage: null,
-    };
+    const nowOptimal: OptimalTimeDto = nowOptimalResult[0];
 
     // Find optimal 4-hour period in next 12 hours
     const next12HoursOptimalTimes = findOptimalPeriod(
@@ -75,10 +71,7 @@ export class ChargeEvService {
       throw new Error('No optimal charging time found for next 12 hours');
     }
 
-    const next12HoursOptimal: OptimalTimeDto = {
-      ...next12HoursOptimalTimes[0],
-      ...this.calculateSavings(nowOptimal, next12HoursOptimalTimes[0]),
-    };
+    const next12HoursOptimal: OptimalTimeDto = next12HoursOptimalTimes[0];
 
     // Find optimal 4-hour period in all available data
     const allOptimalTimes = findOptimalPeriod(
@@ -102,55 +95,9 @@ export class ChargeEvService {
       allOptimalTimes.length > 0 &&
       allOptimalTimes[0].priceAvg < next12HoursOptimal.priceAvg
     ) {
-      result.extended = {
-        ...allOptimalTimes[0],
-        ...this.calculateSavings(nowOptimal, allOptimalTimes[0]),
-      };
+      result.extended = allOptimalTimes[0];
     }
 
     return result;
-  }
-
-  private isCurrentHourOptimal(optimal: {
-    startTime: string;
-    endTime: string;
-  }): boolean {
-    const now = new Date();
-    const currentHour = new Date(now);
-    currentHour.setMinutes(0, 0, 0);
-
-    const optimalStart = new Date(optimal.startTime);
-    const optimalEnd = new Date(optimal.endTime);
-
-    // Check if current hour falls within the optimal time period
-    return currentHour >= optimalStart && currentHour < optimalEnd;
-  }
-
-  private calculateSavings(
-    nowOptimal: OptimalTimeDto,
-    optimal: {
-      startTime: string;
-      endTime: string;
-      priceAvg: number;
-      estimatedTotalPrice: number;
-    },
-  ): {
-    potentialSavings: number | null;
-    potentialSavingsPercentage: number | null;
-  } {
-    // If currently in optimal time, no savings to calculate
-    if (this.isCurrentHourOptimal(optimal)) {
-      return { potentialSavings: null, potentialSavingsPercentage: null };
-    }
-
-    // Calculate savings: (now price) - (optimal price)
-    const savings =
-      nowOptimal.estimatedTotalPrice - optimal.estimatedTotalPrice;
-    const savingsPercentage = (savings / nowOptimal.estimatedTotalPrice) * 100;
-
-    return {
-      potentialSavings: Math.round(savings * 100) / 100,
-      potentialSavingsPercentage: Math.round(savingsPercentage * 100) / 100,
-    };
   }
 }

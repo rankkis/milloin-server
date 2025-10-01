@@ -1,10 +1,10 @@
 import { Test } from '@nestjs/testing';
-import { WashingMachineService } from './washing-machine.service';
+import { WashLaundryService } from './wash-laundry.service';
 import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
 import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
 
-describe('WashingMachineService - Business Rules', () => {
-  let service: WashingMachineService;
+describe('WashLaundryService - Business Rules', () => {
+  let service: WashLaundryService;
   let mockElectricityPriceService: jest.Mocked<ElectricityPriceService>;
 
   beforeEach(async () => {
@@ -17,7 +17,7 @@ describe('WashingMachineService - Business Rules', () => {
 
     const moduleRef = await Test.createTestingModule({
       providers: [
-        WashingMachineService,
+        WashLaundryService,
         {
           provide: ElectricityPriceService,
           useValue: mockElectricityPriceService,
@@ -25,7 +25,7 @@ describe('WashingMachineService - Business Rules', () => {
       ],
     }).compile();
 
-    service = moduleRef.get<WashingMachineService>(WashingMachineService);
+    service = moduleRef.get<WashLaundryService>(WashLaundryService);
   });
 
   describe('Today calculation rules', () => {
@@ -77,10 +77,10 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(8.5); // Cheapest 2-hour slot: (0.08 + 0.09) / 2 * 100 = 8.5 cents
+      expect(result.today.priceAvg).toBe(15.7); // Cheapest 2-hour slot: ((0.08 + 7.2) + (0.09 + 7.2)) / 2 = 15.7 cents (includes tariffs)
     });
 
     it('should NOT include today calculation when current time is nighttime (22:00 Finnish)', async () => {
@@ -108,7 +108,7 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeUndefined();
     });
@@ -138,7 +138,7 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeUndefined();
     });
@@ -192,11 +192,11 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeUndefined();
       expect(result.tomorrow).toBeDefined();
-      expect(result.tomorrow.priceAvg).toBe(9); // (0.08 + 0.10) / 2 * 100 = 9 cents
+      expect(result.tomorrow.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
     });
 
     it('should include tomorrow when it is cheaper than today', async () => {
@@ -243,12 +243,12 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(16.5); // (0.15 + 0.18) / 2 * 100 = 16.5 cents
+      expect(result.today.priceAvg).toBe(23.7); // ((0.15 + 7.2) + (0.18 + 7.2)) / 2 = 23.7 cents (includes tariffs)
       expect(result.tomorrow).toBeDefined();
-      expect(result.tomorrow.priceAvg).toBe(9); // (0.08 + 0.10) / 2 * 100 = 9 cents
+      expect(result.tomorrow.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
       expect(result.tomorrow.priceAvg).toBeLessThan(result.today.priceAvg);
     });
 
@@ -296,11 +296,11 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(9); // (0.08 + 0.10) / 2 * 100 = 9 cents
-      expect(result.tomorrow).toBeUndefined(); // More expensive than today (16.5 > 9)
+      expect(result.today.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
+      expect(result.tomorrow).toBeUndefined(); // More expensive than today (23.7 > 16.2)
     });
   });
 
@@ -352,12 +352,12 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(16.5); // (0.15 + 0.18) / 2 * 100 = 16.5 cents
+      expect(result.today.priceAvg).toBe(23.7); // ((0.15 + 7.2) + (0.18 + 7.2)) / 2 = 23.7 cents (includes tariffs)
       expect(result.tonight).toBeDefined();
-      expect(result.tonight.priceAvg).toBe(9); // (0.08 + 0.10) / 2 * 100 = 9 cents
+      expect(result.tonight.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
       expect(result.tonight.priceAvg).toBeLessThan(result.today.priceAvg);
     });
 
@@ -400,11 +400,11 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(9); // (0.08 + 0.10) / 2 * 100 = 9 cents
-      expect(result.tonight).toBeUndefined(); // More expensive than today (16.5 > 9)
+      expect(result.today.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
+      expect(result.tonight).toBeUndefined(); // More expensive than today (23.7 > 16.2)
     });
 
     it('should include tonight when today is NOT available (nighttime)', async () => {
@@ -451,7 +451,7 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeUndefined(); // Nighttime - no today
       expect(result.tonight).toBeDefined(); // Available since no today to compare against
@@ -521,15 +521,15 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(13.5); // (0.12 + 0.15) / 2 * 100
+      expect(result.today.priceAvg).toBe(20.7); // ((0.12 + 7.2) + (0.15 + 7.2)) / 2 = 20.7 cents (includes tariffs)
 
-      expect(result.tonight).toBeDefined(); // Cheaper than today (9 < 13.5)
-      expect(result.tonight.priceAvg).toBe(9); // (0.08 + 0.10) / 2 * 100
+      expect(result.tonight).toBeDefined(); // Cheaper than today (16.2 < 20.7)
+      expect(result.tonight.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
 
-      expect(result.tomorrow).toBeUndefined(); // More expensive than today (19 > 13.5)
+      expect(result.tomorrow).toBeUndefined(); // More expensive than today (26.2 > 20.7)
     });
 
     it('should handle equal prices correctly (edge case)', async () => {
@@ -571,10 +571,10 @@ describe('WashingMachineService - Business Rules', () => {
         },
       ]);
 
-      const result = await service.getForecast(24);
+      const result = await service.getOptimalSchedule();
 
       expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(11); // (0.10 + 0.12) / 2 * 100
+      expect(result.today.priceAvg).toBe(18.2); // ((0.10 + 7.2) + (0.12 + 7.2)) / 2 = 18.2 cents (includes tariffs)
       expect(result.tonight).toBeUndefined(); // Equal price, not cheaper (11 < 11 is false)
     });
   });

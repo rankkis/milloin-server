@@ -1,6 +1,7 @@
 import { ElectricityPriceDto } from '../dto/electricity-price.dto';
 import { PriceCategory } from '../../dto/price-category.enum';
 import { TARIFF_CONFIG } from '../../config/tariff.config';
+import { PricePointDto } from '../../dto/optimal-time.dto';
 
 /**
  * Result of finding optimal time periods for electricity consumption
@@ -14,8 +15,8 @@ export interface OptimalPeriodResult {
   priceAvg: number;
   /** Price category classification */
   priceCategory: PriceCategory;
-  /** Estimated total price including tariffs for the whole period (cents) */
-  estimatedTotalPrice: number;
+  /** Array of price points at 15-minute intervals between startTime and endTime */
+  pricePoints: PricePointDto[];
 }
 
 /**
@@ -30,6 +31,40 @@ export function calculatePriceCategory(priceInCents: number): PriceCategory {
   if (priceInCents < 10.0) return PriceCategory.NORMAL;
   if (priceInCents < 20.0) return PriceCategory.EXPENSIVE;
   return PriceCategory.VERY_EXPENSIVE;
+}
+
+/**
+ * Generate 15-minute price points from electricity price data (quarter-hour pricing since 1.10.2025).
+ * Each hour is divided into 4 quarters of 15 minutes each.
+ *
+ * @param prices - Array of electricity prices (hourly data)
+ * @returns Array of 15-minute price points with VAT included
+ */
+function generatePricePoints(prices: ElectricityPriceDto[]): PricePointDto[] {
+  const pricePoints: PricePointDto[] = [];
+
+  for (const hourPrice of prices) {
+    const hourStart = new Date(hourPrice.startDate);
+    const priceWithTariffsInCents =
+      hourPrice.price * 100 + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
+
+    // Create 4 quarters of 15 minutes each
+    for (let quarter = 0; quarter < 4; quarter++) {
+      const quarterStart = new Date(hourStart);
+      quarterStart.setMinutes(quarter * 15);
+
+      const quarterEnd = new Date(quarterStart);
+      quarterEnd.setMinutes(quarterStart.getMinutes() + 15);
+
+      pricePoints.push({
+        startTime: quarterStart.toISOString(),
+        endTime: quarterEnd.toISOString(),
+        price: Math.round(priceWithTariffsInCents * 100) / 100, // Round to 2 decimal places
+      });
+    }
+  }
+
+  return pricePoints;
 }
 
 /**
@@ -81,22 +116,21 @@ export function findOptimalPeriod(
     }
 
     if (isConsecutive) {
-      const averagePrice =
-        slot.reduce((sum, hour) => sum + hour.price, 0) / slot.length;
-      const priceInCents = Math.round(averagePrice * 100 * 100) / 100; // Convert euros to cents and round to 2 decimal places
+      // Generate 15-minute price points for this period
+      const pricePoints = generatePricePoints(slot);
 
-      // Calculate estimated total price using actual hourly prices + tariffs
-      const totalPriceWithTariffs = slot.reduce((sum, hour) => {
-        const hourPriceInCents = hour.price * 100; // Convert to cents
-        return sum + hourPriceInCents + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
-      }, 0);
+      // Calculate average price based on price points (includes VAT and tariffs)
+      const priceAvg =
+        pricePoints.reduce((sum, point) => sum + point.price, 0) /
+        pricePoints.length;
+      const priceAvgRounded = Math.round(priceAvg * 100) / 100; // Round to 2 decimal places
 
       optimalSlots.push({
         startTime: slot[0].startDate,
         endTime: slot[slot.length - 1].endDate,
-        priceAvg: priceInCents,
-        priceCategory: calculatePriceCategory(priceInCents),
-        estimatedTotalPrice: Math.round(totalPriceWithTariffs * 100) / 100, // Round to 2 decimal places
+        priceAvg: priceAvgRounded,
+        priceCategory: calculatePriceCategory(priceAvgRounded),
+        pricePoints,
       });
     }
   }
