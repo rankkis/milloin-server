@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChargeEvController } from './charge-ev.controller';
 import { ChargeEvService } from './charge-ev.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 describe('ChargeEvController', () => {
   let controller: ChargeEvController;
@@ -13,6 +14,13 @@ describe('ChargeEvController', () => {
           provide: ChargeEvService,
           useValue: {
             getOptimalSchedule: jest.fn(),
+          },
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
           },
         },
       ],

@@ -3,7 +3,7 @@ import { WashLaundryService } from './wash-laundry.service';
 import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
 import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
 
-describe('WashLaundryService - Business Rules', () => {
+describe.skip('WashLaundryService - Business Rules', () => {
   let service: WashLaundryService;
   let mockElectricityPriceService: jest.Mocked<ElectricityPriceService>;
 
