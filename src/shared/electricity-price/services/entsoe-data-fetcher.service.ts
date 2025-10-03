@@ -43,19 +43,44 @@ export class EntsoeDataFetcherService {
 
   private loadConfig() {
     try {
-      const configPath = path.join(process.cwd(), 'config', 'api-keys.json');
-      const configFile = fs.readFileSync(configPath, 'utf8');
-      const config = JSON.parse(configFile);
+      let entsoeApiKey: string;
+      let supabaseUrl: string;
+      let supabaseAnonKey: string;
 
-      if (!config.entsoe?.apiKey) {
-        throw new Error('ENTSO-E API key not found in config');
+      // Check for environment variables first (production/Vercel)
+      if (
+        process.env.ENTSOE_API_KEY &&
+        process.env.SUPABASE_URL &&
+        process.env.SUPABASE_ANON_KEY
+      ) {
+        entsoeApiKey = process.env.ENTSOE_API_KEY;
+        supabaseUrl = process.env.SUPABASE_URL;
+        supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+        this.logger.log('Using configuration from environment variables');
+      } else {
+        // Fallback to config file (local development)
+        const configPath = path.join(process.cwd(), 'config', 'api-keys.json');
+        const configFile = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(configFile);
+
+        if (!config.entsoe?.apiKey) {
+          throw new Error('ENTSO-E API key not found in config file');
+        }
+
+        if (!config.supabase?.url || !config.supabase?.anonKey) {
+          throw new Error('Supabase configuration not found in config file');
+        }
+
+        entsoeApiKey = config.entsoe.apiKey;
+        supabaseUrl = config.supabase.url;
+        supabaseAnonKey = config.supabase.anonKey;
+        this.logger.log('Using configuration from config file');
       }
 
-      if (!config.supabase?.url || !config.supabase?.anonKey) {
-        throw new Error('Supabase configuration not found in config');
-      }
-
-      return config;
+      return {
+        entsoe: { apiKey: entsoeApiKey },
+        supabase: { url: supabaseUrl, anonKey: supabaseAnonKey },
+      };
     } catch (error) {
       this.logger.error('Failed to load configuration', error);
       throw new HttpException(

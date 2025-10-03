@@ -22,15 +22,30 @@ export class DatabaseProvider implements IElectricityPriceProvider {
 
   private initializeSupabase(): SupabaseClient {
     try {
-      const configPath = path.join(process.cwd(), 'config', 'api-keys.json');
-      const configFile = fs.readFileSync(configPath, 'utf8');
-      const config = JSON.parse(configFile);
+      let supabaseUrl: string;
+      let supabaseAnonKey: string;
 
-      if (!config.supabase?.url || !config.supabase?.anonKey) {
-        throw new Error('Supabase configuration not found');
+      // Check for environment variables first (production/Vercel)
+      if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+        supabaseUrl = process.env.SUPABASE_URL;
+        supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+        this.logger.log('Using Supabase credentials from environment variables');
+      } else {
+        // Fallback to config file (local development)
+        const configPath = path.join(process.cwd(), 'config', 'api-keys.json');
+        const configFile = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(configFile);
+
+        if (!config.supabase?.url || !config.supabase?.anonKey) {
+          throw new Error('Supabase configuration not found in config file');
+        }
+
+        supabaseUrl = config.supabase.url;
+        supabaseAnonKey = config.supabase.anonKey;
+        this.logger.log('Using Supabase credentials from config file');
       }
 
-      return createClient(config.supabase.url, config.supabase.anonKey);
+      return createClient(supabaseUrl, supabaseAnonKey);
     } catch (error) {
       this.logger.error('Failed to initialize Supabase client', error);
       throw new HttpException(
