@@ -14,6 +14,8 @@ export class ChargeEvService {
 
   async getOptimalSchedule(): Promise<ChargeForecastDto> {
     const chargingDurationHours = 4; // EV charging period
+    const intervalsPerHour = 4; // 15-minute intervals since Oct 1, 2025
+    const intervalsNeeded = chargingDurationHours * intervalsPerHour; // 16 intervals for 4 hours
 
     // Get price data for today and tomorrow
     const todayPrices = await this.electricityPriceService.getTodayPrices();
@@ -45,8 +47,8 @@ export class ChargeEvService {
     });
 
     // Calculate "now" optimal time (what it costs to start right now)
-    const startingNowPrices = futurePrice.slice(0, chargingDurationHours);
-    if (startingNowPrices.length < chargingDurationHours) {
+    const startingNowPrices = futurePrice.slice(0, intervalsNeeded);
+    if (startingNowPrices.length < intervalsNeeded) {
       throw new Error('Not enough price data to calculate charging cost');
     }
 
