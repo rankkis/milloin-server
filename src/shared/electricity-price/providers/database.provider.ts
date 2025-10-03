@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -48,25 +43,16 @@ export class DatabaseProvider implements IElectricityPriceProvider {
   async getCurrentPrice(): Promise<ElectricityPriceDto> {
     try {
       const now = new Date();
-      const currentHour = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        now.getHours(),
-        0,
-        0,
-        0,
-      );
 
       this.logger.debug(
-        `Fetching current price for ${currentHour.toISOString()}`,
+        `Fetching current 15-minute price for ${now.toISOString()}`,
       );
 
       const { data, error } = await this.supabase
         .from('electricity_prices')
         .select('price_start_at, price_end_at, price_eur_kwh')
-        .lte('price_start_at', currentHour.toISOString())
-        .gt('price_end_at', currentHour.toISOString())
+        .lte('price_start_at', now.toISOString())
+        .gt('price_end_at', now.toISOString())
         .single();
 
       if (error) {
@@ -79,7 +65,7 @@ export class DatabaseProvider implements IElectricityPriceProvider {
 
       if (!data) {
         throw new HttpException(
-          'Current hour price not found in database',
+          'Current 15-minute price not found in database',
           HttpStatus.NOT_FOUND,
         );
       }
@@ -182,15 +168,6 @@ export class DatabaseProvider implements IElectricityPriceProvider {
 
   async getFuturePrices(): Promise<ElectricityPriceDto[]> {
     const now = new Date();
-    const currentHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0,
-      0,
-      0,
-    );
 
     try {
       const [todayPrices, tomorrowPrices] = await Promise.all([
@@ -198,10 +175,10 @@ export class DatabaseProvider implements IElectricityPriceProvider {
         this.getTomorrowPrices().catch(() => []),
       ]);
 
-      // Filter today's prices to include only current hour and future hours
+      // Filter today's prices to include only current 15-minute interval and future intervals
       const futureTodayPrices = todayPrices.filter((price) => {
         const priceDate = new Date(price.startDate);
-        return priceDate >= currentHour;
+        return priceDate >= now;
       });
 
       // Combine today's remaining prices with tomorrow's prices

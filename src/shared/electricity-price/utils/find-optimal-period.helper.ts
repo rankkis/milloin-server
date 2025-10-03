@@ -34,47 +34,33 @@ export function calculatePriceCategory(priceInCents: number): PriceCategory {
 }
 
 /**
- * Generate 15-minute price points from electricity price data (quarter-hour pricing since 1.10.2025).
- * Each hour is divided into 4 quarters of 15 minutes each.
+ * Converts 15-minute electricity price data to price points with tariffs added.
+ * Since October 1, 2025, prices are already in 15-minute intervals from ENTSO-E.
  *
- * @param prices - Array of electricity prices (hourly data)
- * @returns Array of 15-minute price points with VAT included
+ * @param prices - Array of 15-minute electricity prices
+ * @returns Array of 15-minute price points with VAT and tariffs included
  */
-function generatePricePoints(prices: ElectricityPriceDto[]): PricePointDto[] {
-  const pricePoints: PricePointDto[] = [];
-
-  for (const hourPrice of prices) {
-    const hourStart = new Date(hourPrice.startDate);
+function convertToPricePoints(prices: ElectricityPriceDto[]): PricePointDto[] {
+  return prices.map((price) => {
     const priceWithTariffsInCents =
-      hourPrice.price * 100 + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
+      price.price * 100 + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
 
-    // Create 4 quarters of 15 minutes each
-    for (let quarter = 0; quarter < 4; quarter++) {
-      const quarterStart = new Date(hourStart);
-      quarterStart.setMinutes(quarter * 15);
-
-      const quarterEnd = new Date(quarterStart);
-      quarterEnd.setMinutes(quarterStart.getMinutes() + 15);
-
-      pricePoints.push({
-        startTime: quarterStart.toISOString(),
-        endTime: quarterEnd.toISOString(),
-        price: Math.round(priceWithTariffsInCents * 100) / 100, // Round to 2 decimal places
-      });
-    }
-  }
-
-  return pricePoints;
+    return {
+      startTime: price.startDate,
+      endTime: price.endDate,
+      price: Math.round(priceWithTariffsInCents * 100) / 100, // Round to 2 decimal places
+    };
+  });
 }
 
 /**
  * Finds optimal consecutive time periods with the lowest average electricity prices.
  *
- * This utility function analyzes electricity price data to identify the cheapest
+ * This utility function analyzes 15-minute electricity price data to identify the cheapest
  * consecutive time slots of a specified duration. It's useful for optimizing
  * when to run high-energy appliances like washing machines, EV chargers, etc.
  *
- * @param prices - Array of electricity prices with start/end times
+ * @param prices - Array of 15-minute electricity prices with start/end times
  * @param durationHours - Length of the desired period in hours (e.g., 2 for washing machine, 4 for EV charging)
  * @param maxResults - Maximum number of optimal periods to return (default: 5)
  * @returns Array of optimal periods sorted by price (cheapest first), limited to maxResults
@@ -84,14 +70,15 @@ function generatePricePoints(prices: ElectricityPriceDto[]): PricePointDto[] {
  * const prices = await electricityService.getTodayPrices();
  * const optimalPeriods = findOptimalPeriod(prices, 2); // Find 2-hour periods
  * const cheapest = optimalPeriods[0]; // Get the cheapest 2-hour period
- * console.log(`Start charging at ${cheapest.startTime} for ${cheapest.price}¢/kWh`);
+ * console.log(`Start at ${cheapest.startTime} for ${cheapest.priceAvg}¢/kWh`);
  * ```
  *
  * @remarks
- * - Only returns periods where all hours are consecutive (no gaps in time)
+ * - Works with 15-minute price intervals (4 intervals per hour)
+ * - Only returns periods where all intervals are consecutive (no gaps in time)
  * - Prices are converted from euros to cents and rounded to 2 decimal places
  * - Returns empty array if insufficient data is available
- * - Algorithm complexity: O(n * durationHours) where n is the number of price points
+ * - Algorithm complexity: O(n * quarters) where n is the number of 15-min intervals
  */
 export function findOptimalPeriod(
   prices: ElectricityPriceDto[],
@@ -99,10 +86,11 @@ export function findOptimalPeriod(
   maxResults = 5,
 ): OptimalPeriodResult[] {
   const optimalSlots: OptimalPeriodResult[] = [];
+  const quartersNeeded = durationHours * 4; // 4 quarters (15-min intervals) per hour
 
   // Find all possible consecutive time slots of the required duration
-  for (let i = 0; i <= prices.length - durationHours; i++) {
-    const slot = prices.slice(i, i + durationHours);
+  for (let i = 0; i <= prices.length - quartersNeeded; i++) {
+    const slot = prices.slice(i, i + quartersNeeded);
 
     // Check if the slot is consecutive (no gaps in time)
     let isConsecutive = true;
@@ -116,8 +104,8 @@ export function findOptimalPeriod(
     }
 
     if (isConsecutive) {
-      // Generate 15-minute price points for this period
-      const pricePoints = generatePricePoints(slot);
+      // Convert to price points with tariffs
+      const pricePoints = convertToPricePoints(slot);
 
       // Calculate average price based on price points (includes VAT and tariffs)
       const priceAvg =

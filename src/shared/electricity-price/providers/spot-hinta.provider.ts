@@ -3,6 +3,12 @@ import { ElectricityPriceDto } from '../dto/electricity-price.dto';
 import { SpotHintaApiResponse } from '../interfaces/spot-hinta-api.interface';
 import { IElectricityPriceProvider } from '../interfaces/electricity-price-provider.interface';
 
+/**
+ * Fallback provider using spot-hinta.fi API.
+ * Note: This API provides hourly prices which are converted to 15-minute intervals
+ * by duplicating the hourly price across four 15-minute periods.
+ * Use DatabaseProvider (ENTSO-E data) as primary source for accurate 15-minute pricing.
+ */
 @Injectable()
 export class SpotHintaProvider implements IElectricityPriceProvider {
   private readonly baseUrl = 'https://api.spot-hinta.fi';
@@ -79,40 +85,51 @@ export class SpotHintaProvider implements IElectricityPriceProvider {
     }
   }
 
+  /**
+   * Transforms spot-hinta API response to 15-minute intervals.
+   * Note: spot-hinta.fi provides hourly prices, so we split each hour into four 15-minute intervals
+   * with the same price. This is a fallback behavior when primary ENTSO-E source is unavailable.
+   */
   private transformSpotHintaResponse(
     data: SpotHintaApiResponse[],
   ): ElectricityPriceDto[] {
-    return data.map((item) => ({
-      price: item.PriceWithTax,
-      startDate: new Date(item.DateTime).toISOString(),
-      endDate: new Date(
-        new Date(item.DateTime).getTime() + 60 * 60 * 1000,
-      ).toISOString(),
-    }));
+    const pricePoints: ElectricityPriceDto[] = [];
+
+    for (const item of data) {
+      const hourStart = new Date(item.DateTime);
+
+      // Split hourly price into 4x 15-minute intervals
+      for (let quarter = 0; quarter < 4; quarter++) {
+        const quarterStart = new Date(hourStart);
+        quarterStart.setMinutes(quarter * 15);
+
+        const quarterEnd = new Date(quarterStart);
+        quarterEnd.setMinutes(quarterStart.getMinutes() + 15);
+
+        pricePoints.push({
+          price: item.PriceWithTax,
+          startDate: quarterStart.toISOString(),
+          endDate: quarterEnd.toISOString(),
+        });
+      }
+    }
+
+    return pricePoints;
   }
 
   async getFuturePrices(): Promise<ElectricityPriceDto[]> {
     const now = new Date();
-    const currentHour = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      0,
-      0,
-      0,
-    );
 
     try {
       const [todayPrices, tomorrowPrices] = await Promise.all([
         this.getTodayPrices(),
-        this.getTomorrowPrices().catch(() => []), // Return empty array if tomorrow's prices are not available
+        this.getTomorrowPrices().catch(() => []),
       ]);
 
-      // Filter today's prices to include only current hour and future hours
+      // Filter today's prices to include only current 15-minute interval and future intervals
       const futureTodayPrices = todayPrices.filter((price) => {
         const priceDate = new Date(price.startDate);
-        return priceDate >= currentHour;
+        return priceDate >= now;
       });
 
       // Combine today's remaining prices with tomorrow's prices

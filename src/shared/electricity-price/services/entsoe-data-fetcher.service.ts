@@ -231,8 +231,42 @@ export class EntsoeDataFetcherService {
   }
 
   /**
+   * Parses ISO 8601 duration format to milliseconds.
+   * Since October 1, 2025, all Finnish electricity pricing uses PT15M (15-minute intervals).
+   */
+  private parseResolutionToMs(resolution: string): number {
+    // Match PT15M, PT60M, etc.
+    const minutesMatch = resolution.match(/PT(\d+)M/);
+    if (minutesMatch) {
+      const minutes = parseInt(minutesMatch[1]);
+      if (minutes !== 15) {
+        this.logger.warn(
+          `Unexpected resolution: ${resolution}. Expected PT15M for current pricing.`,
+        );
+      }
+      return minutes * 60 * 1000;
+    }
+
+    // Match PT1H, PT2H, etc. (legacy format, should not occur after Oct 1, 2025)
+    const hoursMatch = resolution.match(/PT(\d+)H/);
+    if (hoursMatch) {
+      this.logger.warn(
+        `Legacy hourly resolution detected: ${resolution}. Converting to 15-minute intervals may be required.`,
+      );
+      return parseInt(hoursMatch[1]) * 60 * 60 * 1000;
+    }
+
+    // Default to 15 minutes for current pricing standard
+    this.logger.error(
+      `Unknown resolution format: ${resolution}, defaulting to 15 minutes`,
+    );
+    return 15 * 60 * 1000;
+  }
+
+  /**
    * Transforms ENTSO-E XML response into database records.
    * Converts prices from EUR/MWh to EUR/kWh and adds 25.5% VAT.
+   * Since October 1, 2025, all data is in 15-minute intervals (PT15M resolution).
    */
   private transformEntsoeResponse(
     response: EntsoeApiResponse,
@@ -255,17 +289,22 @@ export class EntsoeDataFetcherService {
 
       for (const period of periods) {
         const startTime = new Date(period.timeInterval.start);
+        const resolutionMs = this.parseResolutionToMs(period.resolution);
         const points = Array.isArray(period.Point)
           ? period.Point
           : [period.Point];
 
+        this.logger.debug(
+          `Processing ${points.length} price points with ${period.resolution} resolution`,
+        );
+
         for (const point of points) {
           const position = parseInt(point.position) - 1; // ENTSO-E uses 1-based indexing
           const priceStartTime = new Date(
-            startTime.getTime() + position * 60 * 60 * 1000,
+            startTime.getTime() + position * resolutionMs,
           );
           const priceEndTime = new Date(
-            priceStartTime.getTime() + 60 * 60 * 1000,
+            priceStartTime.getTime() + resolutionMs,
           );
 
           const priceEurMwh = parseFloat(point['price.amount']);

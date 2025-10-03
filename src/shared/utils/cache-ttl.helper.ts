@@ -19,7 +19,8 @@ export function calculateCacheTtl(): number {
   const nextInterval = Math.ceil((minutes + 1) / 15) * 15;
 
   // Calculate minutes until next interval
-  const minutesUntilNext = nextInterval > 60 ? 60 - minutes : nextInterval - minutes;
+  const minutesUntilNext =
+    nextInterval > 60 ? 60 - minutes : nextInterval - minutes;
 
   // Convert to milliseconds and subtract current seconds/milliseconds
   const ttl = minutesUntilNext * 60 * 1000 - seconds * 1000 - milliseconds;

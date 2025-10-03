@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { WashLaundryModule } from './wash-laundry/wash-laundry.module';
 import { ChargeEvModule } from './charge-ev/charge-ev.module';
+import { OverviewModule } from './overview/overview.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { ChargeEvModule } from './charge-ev/charge-ev.module';
     }),
     WashLaundryModule,
     ChargeEvModule,
+    OverviewModule,
   ],
   controllers: [],
   providers: [],
