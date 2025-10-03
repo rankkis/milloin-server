@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiTags,
   ApiOperation,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/swagger';
 import { ChargeEvService } from './charge-ev.service';
 import { ChargeForecastDto } from './dto/charge-forecast.dto';
+import { calculateCacheTtl } from '../shared/utils/cache-ttl.helper';
 
 @ApiTags('charge-ev')
 @Controller('charge-ev')
@@ -14,6 +16,8 @@ export class ChargeEvController {
   constructor(private readonly chargeEvService: ChargeEvService) {}
 
   @Get('optimal-schedule')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(calculateCacheTtl())
   @ApiOperation({
     summary: 'Get optimal EV charging schedule',
     description: `

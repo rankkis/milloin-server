@@ -1,6 +1,4 @@
-import { Injectable, HttpException, HttpStatus, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { ElectricityPriceDto } from '../dto/electricity-price.dto';
 import { SpotHintaApiResponse } from '../interfaces/spot-hinta-api.interface';
 import { IElectricityPriceProvider } from '../interfaces/electricity-price-provider.interface';
@@ -9,16 +7,7 @@ import { IElectricityPriceProvider } from '../interfaces/electricity-price-provi
 export class SpotHintaProvider implements IElectricityPriceProvider {
   private readonly baseUrl = 'https://api.spot-hinta.fi';
 
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
-
   async getCurrentPrice(): Promise<ElectricityPriceDto> {
-    const cacheKey = 'current-price';
-
-    const cached = await this.cacheManager.get<ElectricityPriceDto>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     try {
       const response = await fetch(`${this.baseUrl}/JustNow`);
 
@@ -30,12 +19,7 @@ export class SpotHintaProvider implements IElectricityPriceProvider {
       }
 
       const data = await response.json();
-      const transformedData = this.transformSpotHintaResponse([data])[0];
-
-      const ttl = this.calculateNextUpdateTtl();
-      await this.cacheManager.set(cacheKey, transformedData, ttl);
-
-      return transformedData;
+      return this.transformSpotHintaResponse([data])[0];
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -48,13 +32,6 @@ export class SpotHintaProvider implements IElectricityPriceProvider {
   }
 
   async getTodayPrices(): Promise<ElectricityPriceDto[]> {
-    const cacheKey = 'today-prices';
-
-    const cached = await this.cacheManager.get<ElectricityPriceDto[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     try {
       const response = await fetch(`${this.baseUrl}/Today`);
 
@@ -66,12 +43,7 @@ export class SpotHintaProvider implements IElectricityPriceProvider {
       }
 
       const data = await response.json();
-      const transformedData = this.transformSpotHintaResponse(data);
-
-      const ttl = this.calculateNextUpdateTtl();
-      await this.cacheManager.set(cacheKey, transformedData, ttl);
-
-      return transformedData;
+      return this.transformSpotHintaResponse(data);
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -84,13 +56,6 @@ export class SpotHintaProvider implements IElectricityPriceProvider {
   }
 
   async getTomorrowPrices(): Promise<ElectricityPriceDto[]> {
-    const cacheKey = 'tomorrow-prices';
-
-    const cached = await this.cacheManager.get<ElectricityPriceDto[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     try {
       const response = await fetch(`${this.baseUrl}/Tomorrow`);
 
@@ -102,12 +67,7 @@ export class SpotHintaProvider implements IElectricityPriceProvider {
       }
 
       const data = await response.json();
-      const transformedData = this.transformSpotHintaResponse(data);
-
-      const ttl = this.calculateNextUpdateTtl();
-      await this.cacheManager.set(cacheKey, transformedData, ttl);
-
-      return transformedData;
+      return this.transformSpotHintaResponse(data);
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -129,35 +89,6 @@ export class SpotHintaProvider implements IElectricityPriceProvider {
         new Date(item.DateTime).getTime() + 60 * 60 * 1000,
       ).toISOString(),
     }));
-  }
-
-  private calculateNextUpdateTtl(): number {
-    const now = new Date();
-
-    const finnishTime = new Date(
-      now.toLocaleString('en-US', { timeZone: 'Europe/Helsinki' }),
-    );
-
-    const minutes = finnishTime.getMinutes();
-
-    const nextInterval = Math.ceil((minutes + 1) / 15) * 15;
-
-    const nextMinute = nextInterval > 60 ? 0 : nextInterval;
-    const nextHour =
-      nextInterval > 60 ? finnishTime.getHours() + 1 : finnishTime.getHours();
-
-    const nextUpdate = new Date(finnishTime);
-    nextUpdate.setHours(nextHour, nextMinute, 0, 0);
-
-    if (nextHour >= 24) {
-      nextUpdate.setDate(nextUpdate.getDate() + 1);
-      nextUpdate.setHours(0, 0, 0, 0);
-    }
-
-    const ttlMs = nextUpdate.getTime() - finnishTime.getTime();
-    const ttlSeconds = Math.floor(ttlMs / 1000);
-
-    return Math.max(60, ttlSeconds);
   }
 
   async getFuturePrices(): Promise<ElectricityPriceDto[]> {

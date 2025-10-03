@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiTags,
   ApiOperation,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/swagger';
 import { WashLaundryService } from './wash-laundry.service';
 import { WashLaundryForecastDto } from './dto/wash-laundry-forecast.dto';
+import { calculateCacheTtl } from '../shared/utils/cache-ttl.helper';
 
 @ApiTags('wash-laundry')
 @Controller('wash-laundry')
@@ -14,6 +16,8 @@ export class WashLaundryController {
   constructor(private readonly washLaundryService: WashLaundryService) {}
 
   @Get('optimal-schedule')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(calculateCacheTtl())
   @ApiOperation({
     summary: 'Get optimal laundry washing schedule',
     description: `

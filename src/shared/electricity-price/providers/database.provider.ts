@@ -2,11 +2,8 @@ import {
   Injectable,
   HttpException,
   HttpStatus,
-  Inject,
   Logger,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,7 +21,7 @@ export class DatabaseProvider implements IElectricityPriceProvider {
   private readonly logger = new Logger(DatabaseProvider.name);
   private supabase: SupabaseClient;
 
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {
+  constructor() {
     this.supabase = this.initializeSupabase();
   }
 
@@ -49,13 +46,6 @@ export class DatabaseProvider implements IElectricityPriceProvider {
   }
 
   async getCurrentPrice(): Promise<ElectricityPriceDto> {
-    const cacheKey = 'db-current-price';
-
-    const cached = await this.cacheManager.get<ElectricityPriceDto>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     try {
       const now = new Date();
       const currentHour = new Date(
@@ -94,12 +84,7 @@ export class DatabaseProvider implements IElectricityPriceProvider {
         );
       }
 
-      const result = this.transformDatabaseRecord(data);
-
-      const ttl = this.calculateNextUpdateTtl();
-      await this.cacheManager.set(cacheKey, result, ttl);
-
-      return result;
+      return this.transformDatabaseRecord(data);
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -113,13 +98,6 @@ export class DatabaseProvider implements IElectricityPriceProvider {
   }
 
   async getTodayPrices(): Promise<ElectricityPriceDto[]> {
-    const cacheKey = 'db-today-prices';
-
-    const cached = await this.cacheManager.get<ElectricityPriceDto[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     try {
       const today = new Date();
       const startOfToday = new Date(
@@ -149,12 +127,7 @@ export class DatabaseProvider implements IElectricityPriceProvider {
         );
       }
 
-      const result = data.map((record) => this.transformDatabaseRecord(record));
-
-      const ttl = this.calculateNextUpdateTtl();
-      await this.cacheManager.set(cacheKey, result, ttl);
-
-      return result;
+      return data.map((record) => this.transformDatabaseRecord(record));
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -168,13 +141,6 @@ export class DatabaseProvider implements IElectricityPriceProvider {
   }
 
   async getTomorrowPrices(): Promise<ElectricityPriceDto[]> {
-    const cacheKey = 'db-tomorrow-prices';
-
-    const cached = await this.cacheManager.get<ElectricityPriceDto[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     try {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -203,12 +169,7 @@ export class DatabaseProvider implements IElectricityPriceProvider {
         return [];
       }
 
-      const result = data.map((record) => this.transformDatabaseRecord(record));
-
-      const ttl = this.calculateNextUpdateTtl();
-      await this.cacheManager.set(cacheKey, result, ttl);
-
-      return result;
+      return data.map((record) => this.transformDatabaseRecord(record));
     } catch (error) {
       this.logger.warn(
         'Error fetching tomorrow prices from database (might not be available)',
@@ -265,16 +226,5 @@ export class DatabaseProvider implements IElectricityPriceProvider {
       startDate: record.price_start_at,
       endDate: record.price_end_at,
     };
-  }
-
-  private calculateNextUpdateTtl(): number {
-    const now = new Date();
-    const nextHour = new Date(now);
-    nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-
-    const ttlMs = nextHour.getTime() - now.getTime();
-    const ttlSeconds = Math.floor(ttlMs / 1000);
-
-    return Math.max(60, ttlSeconds);
   }
 }
