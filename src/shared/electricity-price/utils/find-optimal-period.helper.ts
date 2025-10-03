@@ -34,21 +34,21 @@ export function calculatePriceCategory(priceInCents: number): PriceCategory {
 }
 
 /**
- * Converts 15-minute electricity price data to price points with tariffs added.
+ * Converts 15-minute electricity price data to price points.
  * Since October 1, 2025, prices are already in 15-minute intervals from ENTSO-E.
+ * Note: Tariffs are NOT included - frontend handles total cost estimations.
  *
  * @param prices - Array of 15-minute electricity prices
- * @returns Array of 15-minute price points with VAT and tariffs included
+ * @returns Array of 15-minute price points with VAT included (in cents/kWh)
  */
 function convertToPricePoints(prices: ElectricityPriceDto[]): PricePointDto[] {
   return prices.map((price) => {
-    const priceWithTariffsInCents =
-      price.price * 100 + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
+    const priceInCents = price.price * 100;
 
     return {
       startTime: price.startDate,
       endTime: price.endDate,
-      price: Math.round(priceWithTariffsInCents * 100) / 100, // Round to 2 decimal places
+      price: Math.round(priceInCents * 100) / 100, // Round to 2 decimal places
     };
   });
 }

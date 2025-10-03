@@ -8,7 +8,6 @@ import {
 import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
 import { PricePointDto } from '../shared/dto/optimal-time.dto';
 import { calculatePriceCategory } from '../shared/electricity-price/utils/find-optimal-period.helper';
-import { TARIFF_CONFIG } from '../shared/config/tariff.config';
 
 @Injectable()
 export class OverviewService {
@@ -45,8 +44,7 @@ export class OverviewService {
   private calculateCurrentPrice(
     currentPrice: ElectricityPriceDto,
   ): CurrentPriceDto {
-    const priceInCents =
-      currentPrice.price * 100 + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
+    const priceInCents = currentPrice.price * 100;
     const roundedPrice = Math.round(priceInCents * 100) / 100;
 
     return {
@@ -83,16 +81,12 @@ export class OverviewService {
       };
     }
 
-    // Convert prices to cents, add tariffs, and create price points
-    const pricePoints: PricePointDto[] = prices.map((price) => {
-      const priceWithTariffsInCents =
-        price.price * 100 + TARIFF_CONFIG.TOTAL_TARIFF_CENTS_KWH;
-      return {
-        startTime: price.startDate,
-        endTime: price.endDate,
-        price: Math.round(priceWithTariffsInCents * 100) / 100, // Round to 2 decimals
-      };
-    });
+    // Convert prices to cents and create price points (no tariffs - frontend handles total estimations)
+    const pricePoints: PricePointDto[] = prices.map((price) => ({
+      startTime: price.startDate,
+      endTime: price.endDate,
+      price: Math.round(price.price * 100 * 100) / 100, // Convert EUR to cents, round to 2 decimals
+    }));
 
     // Calculate average price in cents
     const totalPrice = pricePoints.reduce((sum, point) => sum + point.price, 0);
