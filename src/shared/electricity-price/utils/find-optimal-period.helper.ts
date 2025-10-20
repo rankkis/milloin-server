@@ -1,6 +1,5 @@
 import { ElectricityPriceDto } from '../dto/electricity-price.dto';
 import { PriceCategory } from '../../dto/price-category.enum';
-import { TARIFF_CONFIG } from '../../config/tariff.config';
 import { PricePointDto } from '../../dto/optimal-time.dto';
 
 /**

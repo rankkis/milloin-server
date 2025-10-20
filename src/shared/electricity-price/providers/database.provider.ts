@@ -29,7 +29,9 @@ export class DatabaseProvider implements IElectricityPriceProvider {
       if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
         supabaseUrl = process.env.SUPABASE_URL;
         supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-        this.logger.log('Using Supabase credentials from environment variables');
+        this.logger.log(
+          'Using Supabase credentials from environment variables',
+        );
       } else {
         // Fallback to config file (local development)
         const configPath = path.join(process.cwd(), 'config', 'api-keys.json');
@@ -100,14 +102,13 @@ export class DatabaseProvider implements IElectricityPriceProvider {
 
   async getTodayPrices(): Promise<ElectricityPriceDto[]> {
     try {
-      const today = new Date();
+      const now = new Date();
+      // Calculate start of today in UTC to match database timestamps
       const startOfToday = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate(),
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
       );
       const startOfTomorrow = new Date(startOfToday);
-      startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+      startOfTomorrow.setUTCDate(startOfTomorrow.getUTCDate() + 1);
 
       this.logger.debug(
         `Fetching today's prices for ${startOfToday.toISOString().split('T')[0]}`,
@@ -143,15 +144,13 @@ export class DatabaseProvider implements IElectricityPriceProvider {
 
   async getTomorrowPrices(): Promise<ElectricityPriceDto[]> {
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      const now = new Date();
+      // Calculate start of tomorrow in UTC to match database timestamps
       const startOfTomorrow = new Date(
-        tomorrow.getFullYear(),
-        tomorrow.getMonth(),
-        tomorrow.getDate(),
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
       );
       const startOfDayAfter = new Date(startOfTomorrow);
-      startOfDayAfter.setDate(startOfDayAfter.getDate() + 1);
+      startOfDayAfter.setUTCDate(startOfDayAfter.getUTCDate() + 1);
 
       this.logger.debug(
         `Fetching tomorrow's prices for ${startOfTomorrow.toISOString().split('T')[0]}`,
