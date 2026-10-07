@@ -40,7 +40,7 @@ npm run test              # Run unit tests
 npm run test:watch        # Run tests in watch mode
 npm run test:cov          # Run tests with coverage
 npm run test:e2e          # Run end-to-end tests (mocked prices, no API keys)
-npm run test:integration  # Run integration tests against real Supabase/ENTSO-E (needs config/api-keys.json)
+npm run test:integration  # Run integration tests against real ENTSO-E (needs config/api-keys.json)
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, format check, unit tests, e2e tests and build on every pull request.
@@ -57,7 +57,7 @@ src/
 test/
 ├── app.e2e-spec.ts      # E2E tests with mocked electricity prices
 ├── jest-e2e.json        # E2E Jest config
-├── integration/         # Tests against real Supabase and ENTSO-E
+├── integration/         # Tests against real ENTSO-E
 └── jest-integration.json
 ```
 

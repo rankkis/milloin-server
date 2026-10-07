@@ -4,9 +4,7 @@ import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
 import { ElectricityPriceDto } from '../src/shared/electricity-price/dto/electricity-price.dto';
-import { DatabaseProvider } from '../src/shared/electricity-price/providers/database.provider';
-import { EntsoeDataFetcherService } from '../src/shared/electricity-price/services/entsoe-data-fetcher.service';
-import { ElectricityPriceSchedulerService } from '../src/shared/electricity-price/services/electricity-price-scheduler.service';
+import { PriceCacheService } from '../src/shared/electricity-price/services/price-cache.service';
 
 const QUARTER_MS = 15 * 60 * 1000;
 
@@ -46,12 +44,8 @@ describe('API (e2e)', () => {
         getTomorrowPrices: async () => [],
         getFuturePrices: async () => future(),
       })
-      // External services: no API keys, database or scheduled jobs in tests
-      .overrideProvider(DatabaseProvider)
-      .useValue({})
-      .overrideProvider(EntsoeDataFetcherService)
-      .useValue({})
-      .overrideProvider(ElectricityPriceSchedulerService)
+      // No upstream price fetches or scheduled jobs in tests
+      .overrideProvider(PriceCacheService)
       .useValue({})
       .compile();
 
