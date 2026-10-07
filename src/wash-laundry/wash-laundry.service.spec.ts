@@ -116,6 +116,83 @@ describe('WashLaundryService', () => {
     });
   });
 
+  describe('startDelays', () => {
+    it('costs a 2-hour wash from the current quarter and after 1 to 5 hours', async () => {
+      at(finnishTime(10, 20));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1, { 11: 0.04, 12: 0.04 })),
+      );
+
+      const { startDelays } = await service.getOptimalSchedule();
+
+      expect(startDelays.map((d) => d.delayHours)).toEqual([0, 1, 2, 3, 4, 5]);
+      expect(startDelays[1]).toEqual({
+        delayHours: 1,
+        startTime: finnishTime(11, 15).toISOString(),
+        endTime: finnishTime(13, 15).toISOString(),
+        // 7 quarters at 4 cents and 1 at 10 = 38 / 8
+        priceAvg: 4.75,
+        costCents: 4.75,
+        isBest: true,
+      });
+      // 3 quarters at 10 cents and 5 at 4 = 50 / 8
+      expect(startDelays[0].priceAvg).toBe(6.25);
+      expect(startDelays.filter((d) => d.isBest)).toHaveLength(1);
+    });
+
+    it('prefers the earliest delay on a tie', async () => {
+      at(finnishTime(10));
+      givenPrices(finnishDay(TODAY_START, pricing(0.1)));
+
+      const { startDelays } = await service.getOptimalSchedule();
+
+      expect(startDelays[0].isBest).toBe(true);
+      expect(startDelays.filter((d) => d.isBest)).toHaveLength(1);
+    });
+
+    it('uses 1 kWh per wash for the cost', async () => {
+      at(finnishTime(10));
+      givenPrices(finnishDay(TODAY_START, pricing(0.0333)));
+
+      const { startDelays, defaults } = await service.getOptimalSchedule();
+
+      expect(defaults.powerConsumptionKwh).toBe(1);
+      expect(startDelays[0].costCents).toBe(3.33);
+    });
+
+    it("continues into tomorrow's prices", async () => {
+      at(finnishTime(21));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1)),
+        finnishDay(TOMORROW_START, pricing(0.1, { 0: 0.01, 1: 0.01 })),
+      );
+
+      const { startDelays } = await service.getOptimalSchedule();
+
+      expect(startDelays).toHaveLength(6);
+      expect(startDelays.find((d) => d.isBest).delayHours).toBe(3);
+    });
+
+    it('leaves out delays that would run past the published prices', async () => {
+      at(finnishTime(20, 30));
+      givenPrices(finnishDay(TODAY_START, pricing(0.1)));
+
+      const { startDelays } = await service.getOptimalSchedule();
+
+      // 20:30 + 1 h + 2 h = 23:30 fits, 20:30 + 2 h + 2 h does not
+      expect(startDelays.map((d) => d.delayHours)).toEqual([0, 1]);
+    });
+
+    it('is empty when less than 2 hours of prices remain', async () => {
+      at(finnishTime(23, 0));
+      givenPrices(finnishDay(TODAY_START, pricing(0.1)));
+
+      const { startDelays } = await service.getOptimalSchedule();
+
+      expect(startDelays).toEqual([]);
+    });
+  });
+
   describe('today', () => {
     it('is the cheapest daytime window when it is daytime', async () => {
       at(finnishTime(10));

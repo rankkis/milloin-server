@@ -5,6 +5,12 @@ import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity
 import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
 import { findOptimalPeriod } from '../shared/electricity-price/utils/find-optimal-period.helper';
 import { WashLaundryForecastDto } from './dto/wash-laundry-forecast.dto';
+import { StartDelayDto } from './dto/start-delay.dto';
+
+/** Electricity used by one wash (kWh) */
+export const WASH_ENERGY_KWH = 1;
+/** Timer delays offered to the user: now and +1 … +5 hours */
+const MAX_START_DELAY_HOURS = 5;
 
 // Re-export DTOs for backwards compatibility
 export type WashLaundryForecast = WashLaundryForecastDto;
@@ -50,6 +56,10 @@ export class WashLaundryService {
       (price) => new Date(price.endDate) > now,
     );
     const startingNowPrices = allFuturePrices.slice(0, intervalsNeeded);
+    const startDelays = this.calculateStartDelays(
+      allFuturePrices,
+      washingDurationHours,
+    );
 
     // Calculate "now" optimal time (what it costs to start right now)
     let nowOptimal: OptimalTimeDto | null = null;
@@ -106,10 +116,11 @@ export class WashLaundryService {
     // Note: nowOptimal might be null if not enough future price data is available
     const result: WashLaundryForecast = {
       ...(nowOptimal && { now: nowOptimal }),
+      startDelays,
       defaults: {
         exchangeTariffCentsKwh: TARIFF_CONFIG.EXCHANGE_TARIFF_CENTS_KWH,
         marginTariffCentsKwh: TARIFF_CONFIG.MARGIN_TARIFF_CENTS_KWH,
-        powerConsumptionKwh: 0.7, // Washing machine default power consumption
+        powerConsumptionKwh: WASH_ENERGY_KWH,
         periodHours: washingDurationHours,
       },
     } as WashLaundryForecast;
@@ -139,6 +150,53 @@ export class WashLaundryService {
     }
 
     return result;
+  }
+
+  /**
+   * Cost of starting the program in the current 15-minute interval and
+   * after each whole-hour timer delay.
+   *
+   * @param futurePrices - Prices from the current interval onwards
+   */
+  private calculateStartDelays(
+    futurePrices: ElectricityPriceDto[],
+    durationHours: number,
+  ): StartDelayDto[] {
+    const delays: StartDelayDto[] = [];
+
+    for (
+      let delayHours = 0;
+      delayHours <= MAX_START_DELAY_HOURS;
+      delayHours++
+    ) {
+      const slot = futurePrices.slice(
+        delayHours * 4,
+        (delayHours + durationHours) * 4,
+      );
+      const [period] =
+        slot.length === durationHours * 4
+          ? findOptimalPeriod(slot, durationHours, 1)
+          : [];
+      if (!period) break;
+
+      delays.push({
+        delayHours,
+        startTime: period.startTime,
+        endTime: period.endTime,
+        priceAvg: period.priceAvg,
+        costCents: Math.round(period.priceAvg * WASH_ENERGY_KWH * 100) / 100,
+        isBest: false,
+      });
+    }
+
+    const best = delays.reduce<StartDelayDto | undefined>(
+      (cheapest, delay) =>
+        !cheapest || delay.costCents < cheapest.costCents ? delay : cheapest,
+      undefined,
+    );
+    if (best) best.isBest = true;
+
+    return delays;
   }
 
   private convertToFinnishTime(date: Date): Date {

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { OptimalTimeDto } from '../../shared/dto/optimal-time.dto';
 import { ForecastDefaultsDto } from '../../shared/dto/forecast-defaults.dto';
+import { StartDelayDto } from './start-delay.dto';
 
 export class WashLaundryForecastDto {
   @ApiProperty({
@@ -34,6 +35,13 @@ export class WashLaundryForecastDto {
     required: false,
   })
   tomorrow?: OptimalTimeDto;
+
+  @ApiProperty({
+    description:
+      'Cost of starting the washing machine now or with a timer delay of 1 to 5 hours, in order of delayHours. Delays whose program would run past the published prices are left out.',
+    type: [StartDelayDto],
+  })
+  startDelays: StartDelayDto[];
 
   @ApiProperty({
     description:
