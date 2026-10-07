@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
 import { ElectricityPriceDto } from '../src/shared/electricity-price/dto/electricity-price.dto';
 import { PriceCacheService } from '../src/shared/electricity-price/services/price-cache.service';
+import { startOfHelsinkiDay } from '../src/shared/utils/helsinki-time.helper';
 
 const QUARTER_MS = 15 * 60 * 1000;
 
@@ -33,6 +34,15 @@ describe('API (e2e)', () => {
     const prices = createPrices();
     const now = () => Date.now();
     const future = () => prices.filter((p) => Date.parse(p.endDate) > now());
+    // Prices of one Finnish day, as the price cache slices them
+    const finnishDay = (daysFromToday: number) => {
+      const start = startOfHelsinkiDay(new Date(), daysFromToday).getTime();
+      const end = startOfHelsinkiDay(new Date(), daysFromToday + 1).getTime();
+      return prices.filter((p) => {
+        const priceStart = Date.parse(p.startDate);
+        return priceStart >= start && priceStart < end;
+      });
+    };
 
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
@@ -40,8 +50,8 @@ describe('API (e2e)', () => {
       .overrideProvider(ElectricityPriceService)
       .useValue({
         getCurrentPrices: async () => future().slice(0, 1),
-        getTodayPrices: async () => prices,
-        getTomorrowPrices: async () => [],
+        getTodayPrices: async () => finnishDay(0),
+        getTomorrowPrices: async () => finnishDay(1),
         getFuturePrices: async () => future(),
       })
       // No upstream price fetches or scheduled jobs in tests
@@ -74,6 +84,12 @@ describe('API (e2e)', () => {
     expect(body.current.priceCategory).toBe('NORMAL');
     expect(body.next12Hours.pricePoints.length).toBeGreaterThan(0);
     expect(body.future.pricePoints.length).toBeGreaterThan(0);
+    expect(body.today.length).toBeGreaterThanOrEqual(23);
+    expect(body.today[0].startTime).toBe(
+      startOfHelsinkiDay(new Date()).toISOString(),
+    );
+    expect(body.cheapestWindow.pricePoints).toHaveLength(8);
+    expect(body.cheapestWindow.priceAvg).toBe(2);
   });
 
   it('GET /wash-laundry/optimal-schedule returns a 2-hour schedule', async () => {

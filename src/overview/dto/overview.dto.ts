@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PriceCategory } from '../../shared/dto/price-category.enum';
-import { PricePointDto } from '../../shared/dto/optimal-time.dto';
+import {
+  OptimalTimeDto,
+  PricePointDto,
+} from '../../shared/dto/optimal-time.dto';
 
 export class CurrentPriceDto {
   @ApiProperty({
@@ -58,6 +61,38 @@ export class FuturePriceSummaryDto {
   pricePoints: PricePointDto[];
 }
 
+export class HourlyPriceDto {
+  @ApiProperty({
+    description: 'Start of the hour (ISO 8601, UTC)',
+    example: '2025-10-02T21:00:00.000Z',
+    type: String,
+  })
+  startTime: string;
+
+  @ApiProperty({
+    description: 'End of the hour (ISO 8601, UTC)',
+    example: '2025-10-02T22:00:00.000Z',
+    type: String,
+  })
+  endTime: string;
+
+  @ApiProperty({
+    description:
+      'Average of the 15-minute prices in this hour including VAT (cents/kWh)',
+    example: 3.12,
+    type: Number,
+  })
+  priceAvg: number;
+
+  @ApiProperty({
+    description:
+      'Price category of the hourly average: VERY_CHEAP (<2.5), CHEAP (2.5-5.0), NORMAL (5.0-10.0), EXPENSIVE (10.0-20.0), VERY_EXPENSIVE (>=20.0 c/kWh)',
+    example: PriceCategory.CHEAP,
+    enum: PriceCategory,
+  })
+  priceCategory: PriceCategory;
+}
+
 export class OverviewDto {
   @ApiProperty({
     description: 'Current electricity price information',
@@ -77,4 +112,19 @@ export class OverviewDto {
     type: FuturePriceSummaryDto,
   })
   future: FuturePriceSummaryDto;
+
+  @ApiProperty({
+    description:
+      'Hourly prices for the current Finnish day, from 00:00 to 24:00 Finnish time, past hours included. 23 or 25 entries on daylight saving change days. Hours without published prices are left out.',
+    type: [HourlyPriceDto],
+  })
+  today: HourlyPriceDto[];
+
+  @ApiProperty({
+    description:
+      'Cheapest 2-hour window that has not ended yet, within all available prices. Starts at the current quarter hour at the earliest. Left out when less than 2 hours of prices remain.',
+    type: OptimalTimeDto,
+    required: false,
+  })
+  cheapestWindow?: OptimalTimeDto;
 }
