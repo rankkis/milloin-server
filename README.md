@@ -59,8 +59,11 @@ $ npm run start:prod
 # unit tests
 $ npm run test
 
-# e2e tests
+# e2e tests (mocked prices, no API keys needed)
 $ npm run test:e2e
+
+# integration tests against real Supabase and ENTSO-E (needs config/api-keys.json)
+$ npm run test:integration
 
 # test coverage
 $ npm run test:cov

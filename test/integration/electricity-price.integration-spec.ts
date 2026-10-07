@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
-import { EntsoeDataFetcherService } from '../src/shared/electricity-price/services/entsoe-data-fetcher.service';
+import { AppModule } from '../../src/app.module';
+import { ElectricityPriceService } from '../../src/shared/electricity-price/electricity-price.service';
+import { EntsoeDataFetcherService } from '../../src/shared/electricity-price/services/entsoe-data-fetcher.service';
 
 describe('ElectricityPrice (e2e)', () => {
   let app: INestApplication;

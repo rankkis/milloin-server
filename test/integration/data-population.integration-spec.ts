@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
-import { ElectricityPriceModule } from '../src/shared/electricity-price/electricity-price.module';
+import { ElectricityPriceService } from '../../src/shared/electricity-price/electricity-price.service';
+import { ElectricityPriceModule } from '../../src/shared/electricity-price/electricity-price.module';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';

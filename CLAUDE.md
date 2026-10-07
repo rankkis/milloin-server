@@ -6,7 +6,8 @@ Backend service for the milloin-web project using NestJS with TypeScript.
 
 ## Tech Stack
 
-- **Framework**: NestJS
+- **Runtime**: Node.js 22 (see `.nvmrc`)
+- **Framework**: NestJS 10
 - **Language**: TypeScript
 - **Package Manager**: npm
 - **Testing**: Jest
@@ -30,14 +31,19 @@ npm run start:prod        # Run production build
 
 # Code Quality
 npm run lint              # Run ESLint with auto-fix
+npm run lint:check        # Run ESLint without fixing (CI)
 npm run format            # Format code with Prettier
+npm run format:check      # Check formatting (CI)
 
 # Testing
 npm run test              # Run unit tests
 npm run test:watch        # Run tests in watch mode
 npm run test:cov          # Run tests with coverage
-npm run test:e2e          # Run end-to-end tests
+npm run test:e2e          # Run end-to-end tests (mocked prices, no API keys)
+npm run test:integration  # Run integration tests against real Supabase/ENTSO-E (needs config/api-keys.json)
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint, format check, unit tests, e2e tests and build on every pull request.
 
 ## Project Structure
 
@@ -49,8 +55,10 @@ src/
 └── app.service.ts       # Root service
 
 test/
-├── app.e2e-spec.ts      # E2E tests
-└── jest-e2e.json        # E2E Jest config
+├── app.e2e-spec.ts      # E2E tests with mocked electricity prices
+├── jest-e2e.json        # E2E Jest config
+├── integration/         # Tests against real Supabase and ENTSO-E
+└── jest-integration.json
 ```
 
 ## Version control notes

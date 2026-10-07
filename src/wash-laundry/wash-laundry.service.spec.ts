@@ -3,583 +3,273 @@ import { WashLaundryService } from './wash-laundry.service';
 import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
 import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
 
-describe.skip('WashLaundryService - Business Rules', () => {
+const QUARTER_MS = 15 * 60 * 1000;
+const HOUR_MS = 4 * QUARTER_MS;
+
+// Finnish summer time is UTC+3, so a Finnish day starts at 21:00Z the day before
+const TODAY_START = '2025-07-14T21:00:00.000Z'; // 2025-07-15 00:00 Finnish
+const TOMORROW_START = '2025-07-15T21:00:00.000Z'; // 2025-07-16 00:00 Finnish
+
+/** Finnish clock time on 2025-07-15 as a UTC instant */
+const finnishTime = (hour: number, minute = 0): Date =>
+  new Date(new Date(TODAY_START).getTime() + hour * HOUR_MS + minute * 60000);
+
+/**
+ * Creates a Finnish day of 15-minute prices.
+ * @param dayStart - UTC instant of 00:00 Finnish time
+ * @param priceForHour - Price in EUR/kWh for each Finnish hour (0-23)
+ */
+const finnishDay = (
+  dayStart: string,
+  priceForHour: (hour: number) => number,
+): ElectricityPriceDto[] => {
+  const base = new Date(dayStart).getTime();
+  return Array.from({ length: 96 }, (_, q) => {
+    const start = base + q * QUARTER_MS;
+    return {
+      price: priceForHour(Math.floor(q / 4)),
+      startDate: new Date(start).toISOString(),
+      endDate: new Date(start + QUARTER_MS).toISOString(),
+    };
+  });
+};
+
+/** Flat price with optional cheap hours */
+const pricing =
+  (base: number, cheap: Record<number, number> = {}) =>
+  (hour: number) =>
+    cheap[hour] ?? base;
+
+/** Finnish hour of an ISO timestamp on summer time */
+const finnishHour = (iso: string): number =>
+  (new Date(iso).getUTCHours() + 3) % 24;
+
+describe('WashLaundryService', () => {
   let service: WashLaundryService;
-  let mockElectricityPriceService: jest.Mocked<ElectricityPriceService>;
+  let prices: jest.Mocked<
+    Pick<ElectricityPriceService, 'getTodayPrices' | 'getTomorrowPrices'>
+  >;
+
+  const givenPrices = (
+    today: ElectricityPriceDto[],
+    tomorrow: ElectricityPriceDto[] | Error = [],
+  ) => {
+    prices.getTodayPrices.mockResolvedValue(today);
+    if (tomorrow instanceof Error) {
+      prices.getTomorrowPrices.mockRejectedValue(tomorrow);
+    } else {
+      prices.getTomorrowPrices.mockResolvedValue(tomorrow);
+    }
+  };
 
   beforeEach(async () => {
-    mockElectricityPriceService = {
+    prices = {
       getTodayPrices: jest.fn(),
       getTomorrowPrices: jest.fn(),
-      getCurrentPrices: jest.fn(),
-      getFuturePrices: jest.fn(),
-    } as any;
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         WashLaundryService,
-        {
-          provide: ElectricityPriceService,
-          useValue: mockElectricityPriceService,
-        },
+        { provide: ElectricityPriceService, useValue: prices },
       ],
     }).compile();
 
-    service = moduleRef.get<WashLaundryService>(WashLaundryService);
-  });
-
-  describe('Today calculation rules', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('should include today calculation when current time is during daytime (10:00 Finnish)', async () => {
-      // Mock current time as 2024-07-15 10:00 Finnish time (UTC+3)
-      // This translates to 07:00 UTC
-      const mockDate = new Date('2024-07-15T07:00:00.000Z');
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.15,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        }, // 10:00-11:00 Finnish (current)
-        {
-          price: 0.12,
-          startDate: '2024-07-15T08:00:00.000Z',
-          endDate: '2024-07-15T09:00:00.000Z',
-        }, // 11:00-12:00 Finnish
-        {
-          price: 0.09,
-          startDate: '2024-07-15T09:00:00.000Z',
-          endDate: '2024-07-15T10:00:00.000Z',
-        }, // 12:00-13:00 Finnish
-        {
-          price: 0.08,
-          startDate: '2024-07-15T10:00:00.000Z',
-          endDate: '2024-07-15T11:00:00.000Z',
-        }, // 13:00-14:00 Finnish
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue([]);
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.15,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(15.7); // Cheapest 2-hour slot: ((0.08 + 7.2) + (0.09 + 7.2)) / 2 = 15.7 cents (includes tariffs)
-    });
-
-    it('should NOT include today calculation when current time is nighttime (22:00 Finnish)', async () => {
-      // Mock current time as 2024-07-15 22:00 Finnish time (UTC+3)
-      // This translates to 19:00 UTC
-      const mockDate = new Date('2024-07-15T19:00:00.000Z');
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.12,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        }, // 22:00-23:00 Finnish (current)
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue([]);
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.12,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeUndefined();
-    });
-
-    it('should NOT include today calculation when current time is early morning (05:00 Finnish)', async () => {
-      // Mock current time as 2024-07-15 05:00 Finnish time (UTC+3)
-      // This translates to 02:00 UTC
-      const mockDate = new Date('2024-07-15T02:00:00.000Z');
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.1,
-          startDate: '2024-07-15T02:00:00.000Z',
-          endDate: '2024-07-15T03:00:00.000Z',
-        }, // 05:00-06:00 Finnish (current)
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue([]);
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.1,
-          startDate: '2024-07-15T02:00:00.000Z',
-          endDate: '2024-07-15T03:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeUndefined();
-    });
-  });
-
-  describe('Tomorrow calculation rules', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('should include tomorrow when today is NOT available (nighttime)', async () => {
-      // Mock current time as 22:00 Finnish time (nighttime - no today)
-      const mockDate = new Date('2024-07-15T19:00:00.000Z'); // 22:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.12,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        }, // 22:00-23:00 Finnish
-      ];
-
-      const tomorrowPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.08,
-          startDate: '2024-07-16T05:00:00.000Z',
-          endDate: '2024-07-16T06:00:00.000Z',
-        }, // 08:00-09:00 Finnish tomorrow
-        {
-          price: 0.1,
-          startDate: '2024-07-16T06:00:00.000Z',
-          endDate: '2024-07-16T07:00:00.000Z',
-        }, // 09:00-10:00 Finnish tomorrow
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue(
-        tomorrowPrices,
-      );
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.12,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeUndefined();
-      expect(result.tomorrow).toBeDefined();
-      expect(result.tomorrow.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
-    });
-
-    it('should include tomorrow when it is cheaper than today', async () => {
-      // Mock current time as 10:00 Finnish time (daytime - today available)
-      const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.15,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        }, // 10:00-11:00 Finnish (current)
-        {
-          price: 0.18,
-          startDate: '2024-07-15T08:00:00.000Z',
-          endDate: '2024-07-15T09:00:00.000Z',
-        }, // 11:00-12:00 Finnish
-      ];
-
-      const tomorrowPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.08,
-          startDate: '2024-07-16T05:00:00.000Z',
-          endDate: '2024-07-16T06:00:00.000Z',
-        }, // 08:00-09:00 Finnish tomorrow
-        {
-          price: 0.1,
-          startDate: '2024-07-16T06:00:00.000Z',
-          endDate: '2024-07-16T07:00:00.000Z',
-        }, // 09:00-10:00 Finnish tomorrow
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue(
-        tomorrowPrices,
-      );
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.15,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(23.7); // ((0.15 + 7.2) + (0.18 + 7.2)) / 2 = 23.7 cents (includes tariffs)
-      expect(result.tomorrow).toBeDefined();
-      expect(result.tomorrow.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
-      expect(result.tomorrow.priceAvg).toBeLessThan(result.today.priceAvg);
-    });
-
-    it('should NOT include tomorrow when today is available and tomorrow is more expensive', async () => {
-      // Mock current time as 10:00 Finnish time (daytime - today available)
-      const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.08,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        }, // 10:00-11:00 Finnish (current)
-        {
-          price: 0.1,
-          startDate: '2024-07-15T08:00:00.000Z',
-          endDate: '2024-07-15T09:00:00.000Z',
-        }, // 11:00-12:00 Finnish
-      ];
-
-      const tomorrowPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.15,
-          startDate: '2024-07-16T05:00:00.000Z',
-          endDate: '2024-07-16T06:00:00.000Z',
-        }, // 08:00-09:00 Finnish tomorrow
-        {
-          price: 0.18,
-          startDate: '2024-07-16T06:00:00.000Z',
-          endDate: '2024-07-16T07:00:00.000Z',
-        }, // 09:00-10:00 Finnish tomorrow
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue(
-        tomorrowPrices,
-      );
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.08,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
-      expect(result.tomorrow).toBeUndefined(); // More expensive than today (23.7 > 16.2)
-    });
-  });
-
-  describe('Tonight calculation rules', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('should include tonight when it is cheaper than today', async () => {
-      // Mock current time as 10:00 Finnish time (daytime - today available)
-      const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.15,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        }, // 10:00-11:00 Finnish (current)
-        {
-          price: 0.18,
-          startDate: '2024-07-15T08:00:00.000Z',
-          endDate: '2024-07-15T09:00:00.000Z',
-        }, // 11:00-12:00 Finnish
-        {
-          price: 0.08,
-          startDate: '2024-07-15T18:00:00.000Z',
-          endDate: '2024-07-15T19:00:00.000Z',
-        }, // 21:00-22:00 Finnish (tonight)
-        {
-          price: 0.1,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        }, // 22:00-23:00 Finnish (tonight)
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue([]);
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.15,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(23.7); // ((0.15 + 7.2) + (0.18 + 7.2)) / 2 = 23.7 cents (includes tariffs)
-      expect(result.tonight).toBeDefined();
-      expect(result.tonight.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
-      expect(result.tonight.priceAvg).toBeLessThan(result.today.priceAvg);
-    });
-
-    it('should NOT include tonight when today is available and tonight is more expensive', async () => {
-      // Mock current time as 10:00 Finnish time (daytime - today available)
-      const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.08,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        }, // 10:00-11:00 Finnish (current)
-        {
-          price: 0.1,
-          startDate: '2024-07-15T08:00:00.000Z',
-          endDate: '2024-07-15T09:00:00.000Z',
-        }, // 11:00-12:00 Finnish
-        {
-          price: 0.15,
-          startDate: '2024-07-15T18:00:00.000Z',
-          endDate: '2024-07-15T19:00:00.000Z',
-        }, // 21:00-22:00 Finnish (tonight)
-        {
-          price: 0.18,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        }, // 22:00-23:00 Finnish (tonight)
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue([]);
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.08,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
-      expect(result.tonight).toBeUndefined(); // More expensive than today (23.7 > 16.2)
-    });
-
-    it('should include tonight when today is NOT available (nighttime)', async () => {
-      // Mock current time as 22:00 Finnish time (nighttime - no today)
-      const mockDate = new Date('2024-07-15T19:00:00.000Z'); // 22:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.08,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        }, // 22:00-23:00 Finnish (current)
-        {
-          price: 0.1,
-          startDate: '2024-07-15T20:00:00.000Z',
-          endDate: '2024-07-15T21:00:00.000Z',
-        }, // 23:00-00:00 Finnish
-      ];
-
-      const tomorrowPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.05,
-          startDate: '2024-07-15T22:00:00.000Z',
-          endDate: '2024-07-15T23:00:00.000Z',
-        }, // 01:00-02:00 Finnish (tomorrow nighttime)
-        {
-          price: 0.06,
-          startDate: '2024-07-15T23:00:00.000Z',
-          endDate: '2024-07-16T00:00:00.000Z',
-        }, // 02:00-03:00 Finnish (tomorrow nighttime)
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue(
-        tomorrowPrices,
-      );
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.08,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeUndefined(); // Nighttime - no today
-      expect(result.tonight).toBeDefined(); // Available since no today to compare against
-    });
-  });
-
-  describe('Complex scenarios', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('should handle scenario with all three periods available and correct filtering', async () => {
-      // Mock current time as 14:00 Finnish time (afternoon - today available)
-      const mockDate = new Date('2024-07-15T11:00:00.000Z'); // 14:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.12,
-          startDate: '2024-07-15T11:00:00.000Z',
-          endDate: '2024-07-15T12:00:00.000Z',
-        }, // 14:00-15:00 Finnish (current)
-        {
-          price: 0.15,
-          startDate: '2024-07-15T12:00:00.000Z',
-          endDate: '2024-07-15T13:00:00.000Z',
-        }, // 15:00-16:00 Finnish
-        {
-          price: 0.08,
-          startDate: '2024-07-15T18:00:00.000Z',
-          endDate: '2024-07-15T19:00:00.000Z',
-        }, // 21:00-22:00 Finnish (tonight)
-        {
-          price: 0.1,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        }, // 22:00-23:00 Finnish (tonight)
-      ];
-
-      const tomorrowPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.18,
-          startDate: '2024-07-16T05:00:00.000Z',
-          endDate: '2024-07-16T06:00:00.000Z',
-        }, // 08:00-09:00 Finnish tomorrow
-        {
-          price: 0.2,
-          startDate: '2024-07-16T06:00:00.000Z',
-          endDate: '2024-07-16T07:00:00.000Z',
-        }, // 09:00-10:00 Finnish tomorrow
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue(
-        tomorrowPrices,
-      );
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.12,
-          startDate: '2024-07-15T11:00:00.000Z',
-          endDate: '2024-07-15T12:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(20.7); // ((0.12 + 7.2) + (0.15 + 7.2)) / 2 = 20.7 cents (includes tariffs)
-
-      expect(result.tonight).toBeDefined(); // Cheaper than today (16.2 < 20.7)
-      expect(result.tonight.priceAvg).toBe(16.2); // ((0.08 + 7.2) + (0.10 + 7.2)) / 2 = 16.2 cents (includes tariffs)
-
-      expect(result.tomorrow).toBeUndefined(); // More expensive than today (26.2 > 20.7)
-    });
-
-    it('should handle equal prices correctly (edge case)', async () => {
-      // Mock current time as 10:00 Finnish time (daytime)
-      const mockDate = new Date('2024-07-15T07:00:00.000Z'); // 10:00 Finnish
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
-
-      const todayPrices: ElectricityPriceDto[] = [
-        {
-          price: 0.1,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        }, // 10:00-11:00 Finnish (current)
-        {
-          price: 0.12,
-          startDate: '2024-07-15T08:00:00.000Z',
-          endDate: '2024-07-15T09:00:00.000Z',
-        }, // 11:00-12:00 Finnish
-        {
-          price: 0.1,
-          startDate: '2024-07-15T18:00:00.000Z',
-          endDate: '2024-07-15T19:00:00.000Z',
-        }, // 21:00-22:00 Finnish (tonight)
-        {
-          price: 0.12,
-          startDate: '2024-07-15T19:00:00.000Z',
-          endDate: '2024-07-15T20:00:00.000Z',
-        }, // 22:00-23:00 Finnish (tonight)
-      ];
-
-      mockElectricityPriceService.getTodayPrices.mockResolvedValue(todayPrices);
-      mockElectricityPriceService.getTomorrowPrices.mockResolvedValue([]);
-      mockElectricityPriceService.getCurrentPrices.mockResolvedValue([
-        {
-          price: 0.1,
-          startDate: '2024-07-15T07:00:00.000Z',
-          endDate: '2024-07-15T08:00:00.000Z',
-        },
-      ]);
-
-      const result = await service.getOptimalSchedule();
-
-      expect(result.today).toBeDefined();
-      expect(result.today.priceAvg).toBe(18.2); // ((0.10 + 7.2) + (0.12 + 7.2)) / 2 = 18.2 cents (includes tariffs)
-      expect(result.tonight).toBeUndefined(); // Equal price, not cheaper (11 < 11 is false)
-    });
+    service = moduleRef.get(WashLaundryService);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  const at = (date: Date) => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    jest.setSystemTime(date);
+  };
+
+  describe('now', () => {
+    it('returns the cost of a 2-hour wash starting from the current quarter', async () => {
+      at(finnishTime(10, 20));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1, { 10: 0.04, 11: 0.08 })),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.now).toBeDefined();
+      expect(result.now.startTime).toBe(finnishTime(10, 15).toISOString());
+      expect(result.now.endTime).toBe(finnishTime(12, 15).toISOString());
+      expect(result.now.pricePoints).toHaveLength(8);
+      // 3 quarters at 4, 4 at 8 and 1 at 10 cents = 54 / 8
+      expect(result.now.priceAvg).toBe(6.75);
+    });
+
+    it('is left out when less than 2 hours of prices remain', async () => {
+      at(finnishTime(23, 0));
+      givenPrices(finnishDay(TODAY_START, pricing(0.1)));
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.now).toBeUndefined();
+    });
+  });
+
+  describe('today', () => {
+    it('is the cheapest daytime window when it is daytime', async () => {
+      at(finnishTime(10));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1, { 13: 0.03, 14: 0.03 })),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.today).toBeDefined();
+      expect(result.today.startTime).toBe(finnishTime(13).toISOString());
+      expect(result.today.priceAvg).toBe(3);
+    });
+
+    it('ignores daytime hours that have already passed', async () => {
+      at(finnishTime(10));
+      givenPrices(finnishDay(TODAY_START, pricing(0.1, { 7: 0.01, 8: 0.01 })));
+
+      const result = await service.getOptimalSchedule();
+
+      expect(new Date(result.today.startTime).getTime()).toBeGreaterThanOrEqual(
+        finnishTime(10).getTime(),
+      );
+    });
+
+    it.each([
+      ['22:00', 22],
+      ['05:00', 5],
+    ])('is left out at night (%s Finnish time)', async (_label, hour) => {
+      at(finnishTime(hour));
+      givenPrices(finnishDay(TODAY_START, pricing(0.1)));
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.today).toBeUndefined();
+    });
+  });
+
+  describe('tonight', () => {
+    it('is included when it is cheaper than today', async () => {
+      at(finnishTime(10));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1, { 22: 0.02, 23: 0.02 })),
+        finnishDay(TOMORROW_START, pricing(0.1)),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.tonight).toBeDefined();
+      expect(finnishHour(result.tonight.startTime)).toBe(22);
+      expect(result.tonight.priceAvg).toBe(2);
+    });
+
+    it('is left out when it is more expensive than today', async () => {
+      at(finnishTime(10));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1, { 13: 0.02, 14: 0.02 })),
+        finnishDay(TOMORROW_START, pricing(0.1)),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.today.priceAvg).toBe(2);
+      expect(result.tonight).toBeUndefined();
+    });
+
+    it('is included at night even without today to compare to', async () => {
+      at(finnishTime(22));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1)),
+        finnishDay(TOMORROW_START, pricing(0.1, { 2: 0.01, 3: 0.01 })),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.tonight).toBeDefined();
+      expect(finnishHour(result.tonight.startTime)).toBe(2);
+    });
+  });
+
+  describe('tomorrow', () => {
+    it('is included at night when today is not available', async () => {
+      at(finnishTime(22));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1)),
+        finnishDay(TOMORROW_START, pricing(0.1, { 12: 0.05, 13: 0.05 })),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.tomorrow).toBeDefined();
+      expect(finnishHour(result.tomorrow.startTime)).toBe(12);
+    });
+
+    it('is included during the day when it is cheaper than today', async () => {
+      at(finnishTime(10));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1)),
+        finnishDay(TOMORROW_START, pricing(0.1, { 9: 0.02, 10: 0.02 })),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.tomorrow).toBeDefined();
+      expect(result.tomorrow.priceAvg).toBe(2);
+    });
+
+    it('is left out during the day when it is more expensive than today', async () => {
+      at(finnishTime(10));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1, { 14: 0.02, 15: 0.02 })),
+        finnishDay(TOMORROW_START, pricing(0.1)),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.tomorrow).toBeUndefined();
+    });
+
+    it('is left out when equal to today', async () => {
+      at(finnishTime(10));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1)),
+        finnishDay(TOMORROW_START, pricing(0.1)),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.today).toBeDefined();
+      expect(result.tomorrow).toBeUndefined();
+      expect(result.tonight).toBeUndefined();
+    });
+
+    it("still answers when tomorrow's prices are not published yet", async () => {
+      at(finnishTime(10));
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1)),
+        new Error('Not published'),
+      );
+
+      const result = await service.getOptimalSchedule();
+
+      expect(result.today).toBeDefined();
+      expect(result.tomorrow).toBeUndefined();
+    });
+  });
+
+  it('returns the calculation defaults', async () => {
+    at(finnishTime(10));
+    givenPrices(finnishDay(TODAY_START, pricing(0.1)));
+
+    const result = await service.getOptimalSchedule();
+
+    expect(result.defaults.periodHours).toBe(2);
+    expect(result.defaults.powerConsumptionKwh).toBeGreaterThan(0);
   });
 });
