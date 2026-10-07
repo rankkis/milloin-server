@@ -30,9 +30,8 @@ Backend service for the milloin-web project. Provides electricity pricing data f
 
 - **Electricity Price Data**: Fetches day-ahead electricity prices from ENTSO-E for Finland
 - **VAT Included**: All prices include 25.5% Finnish VAT for consumer-ready pricing
-- **Database Storage**: Stores prices in Supabase with automatic UPSERT to prevent duplicates
-- **Caching**: Implements intelligent caching to minimize API calls and database queries
-- **Multi-Provider Architecture**: Falls back to SpotHinta API if database is unavailable
+- **In-Memory Prices**: Keeps prices in memory, refreshed when the next day's prices are published and on demand when memory is empty or outdated. No database.
+- **Multi-Provider Architecture**: Falls back to SpotHinta API if ENTSO-E is unavailable
 
 ## Project setup
 
@@ -62,7 +61,7 @@ $ npm run test
 # e2e tests (mocked prices, no API keys needed)
 $ npm run test:e2e
 
-# integration tests against real Supabase and ENTSO-E (needs config/api-keys.json)
+# integration tests against real ENTSO-E (needs config/api-keys.json)
 $ npm run test:integration
 
 # test coverage

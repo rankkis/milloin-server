@@ -1,132 +1,61 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { AppModule } from '../../src/app.module';
+import { ElectricityPriceModule } from '../../src/shared/electricity-price/electricity-price.module';
 import { ElectricityPriceService } from '../../src/shared/electricity-price/electricity-price.service';
-import { EntsoeDataFetcherService } from '../../src/shared/electricity-price/services/entsoe-data-fetcher.service';
+import { EntsoeProvider } from '../../src/shared/electricity-price/providers/entsoe.provider';
 
-describe('ElectricityPrice (e2e)', () => {
-  let app: INestApplication;
+describe('Electricity prices (integration)', () => {
+  let moduleFixture: TestingModule;
   let electricityPriceService: ElectricityPriceService;
-  let entsoeDataFetcher: EntsoeDataFetcherService;
+  let entsoeProvider: EntsoeProvider;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+    moduleFixture = await Test.createTestingModule({
+      imports: [ElectricityPriceModule],
     }).compile();
+    await moduleFixture.init();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-
-    electricityPriceService = moduleFixture.get<ElectricityPriceService>(
-      ElectricityPriceService,
-    );
-    entsoeDataFetcher = moduleFixture.get<EntsoeDataFetcherService>(
-      EntsoeDataFetcherService,
-    );
+    electricityPriceService = moduleFixture.get(ElectricityPriceService);
+    entsoeProvider = moduleFixture.get(EntsoeProvider);
   });
 
   afterAll(async () => {
-    await app.close();
+    await moduleFixture.close();
   });
 
-  describe('ENTSO-E Data Fetcher', () => {
-    it('should be able to fetch and store today prices from ENTSO-E', async () => {
-      // This test verifies the complete data flow: ENTSO-E API -> Database
-      await expect(
-        entsoeDataFetcher.fetchAndStoreTodayPrices(),
-      ).resolves.not.toThrow();
-    }, 30000); // 30 second timeout for API call
+  it('fetches today prices from ENTSO-E in 15-minute intervals', async () => {
+    const now = new Date();
+    const start = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
-    it('should handle tomorrow prices gracefully (might not be available)', async () => {
-      // This test verifies tomorrow prices are handled correctly
-      await expect(
-        entsoeDataFetcher.fetchAndStoreTomorrowPrices(),
-      ).resolves.not.toThrow();
-    }, 30000);
-  });
+    const prices = await entsoeProvider.fetchPrices(start, end);
 
-  describe('Database Provider', () => {
-    it('should fetch current prices from database (after data is available)', async () => {
-      // First ensure we have some data
-      await entsoeDataFetcher.fetchAndStoreTodayPrices();
-
-      // Then try to fetch current prices
-      const currentPrices = await electricityPriceService.getCurrentPrices();
-      expect(currentPrices).toBeDefined();
-      expect(Array.isArray(currentPrices)).toBe(true);
-      expect(currentPrices.length).toBeGreaterThan(0);
-
-      // Verify price structure
-      const price = currentPrices[0];
-      expect(price.price).toBeDefined();
+    expect(prices.length).toBeGreaterThanOrEqual(92);
+    for (const price of prices) {
       expect(typeof price.price).toBe('number');
-      expect(price.startDate).toBeDefined();
-      expect(price.endDate).toBeDefined();
-    }, 35000);
+      expect(Date.parse(price.endDate) - Date.parse(price.startDate)).toBe(
+        15 * 60 * 1000,
+      );
+    }
+  }, 30000);
 
-    it('should fetch today prices from database', async () => {
-      const todayPrices = await electricityPriceService.getTodayPrices();
-      expect(todayPrices).toBeDefined();
-      expect(Array.isArray(todayPrices)).toBe(true);
+  it('serves the current price from memory', async () => {
+    const [current] = await electricityPriceService.getCurrentPrices();
+    const now = Date.now();
 
-      if (todayPrices.length > 0) {
-        expect(todayPrices.length).toBeLessThanOrEqual(24); // Max 24 hours
+    expect(Date.parse(current.startDate)).toBeLessThanOrEqual(now);
+    expect(Date.parse(current.endDate)).toBeGreaterThan(now);
+  }, 30000);
 
-        // Verify each price has required structure
-        todayPrices.forEach((price) => {
-          expect(price.price).toBeDefined();
-          expect(typeof price.price).toBe('number');
-          expect(price.startDate).toBeDefined();
-          expect(price.endDate).toBeDefined();
-        });
-      }
-    }, 10000);
+  it('serves future prices sorted chronologically', async () => {
+    const prices = await electricityPriceService.getFuturePrices();
 
-    it('should fetch future prices from database', async () => {
-      const futurePrices = await electricityPriceService.getFuturePrices();
-      expect(futurePrices).toBeDefined();
-      expect(Array.isArray(futurePrices)).toBe(true);
-
-      // Future prices should be sorted chronologically
-      if (futurePrices.length > 1) {
-        for (let i = 1; i < futurePrices.length; i++) {
-          const prevDate = new Date(futurePrices[i - 1].startDate);
-          const currDate = new Date(futurePrices[i].startDate);
-          expect(currDate.getTime()).toBeGreaterThanOrEqual(prevDate.getTime());
-        }
-      }
-    }, 10000);
-  });
-
-  describe('API Integration', () => {
-    it('should return current electricity prices via HTTP', async () => {
-      // This test assumes you have an API endpoint for electricity prices
-      // If not, this test will help identify if you need to create one
-      const response = await request(app.getHttpServer())
-        .get('/electricity-price/current') // Adjust endpoint as needed
-        .expect(200);
-
-      expect(response.body).toBeDefined();
-    });
-
-    it('should return today electricity prices via HTTP', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/electricity-price/today') // Adjust endpoint as needed
-        .expect(200);
-
-      expect(response.body).toBeDefined();
-    });
-  });
-
-  describe('Fallback Mechanism', () => {
-    it('should handle database failures gracefully', async () => {
-      // This test verifies the fallback to SpotHinta works
-      // We can't easily simulate database failure in e2e test,
-      // but we can verify the service doesn't throw unhandled errors
-      await expect(
-        electricityPriceService.getCurrentPrices(),
-      ).resolves.not.toThrow();
-    });
-  });
+    expect(prices.length).toBeGreaterThan(0);
+    for (let i = 1; i < prices.length; i++) {
+      expect(Date.parse(prices[i].startDate)).toBeGreaterThan(
+        Date.parse(prices[i - 1].startDate),
+      );
+    }
+  }, 30000);
 });

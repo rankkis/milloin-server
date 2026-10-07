@@ -1,70 +1,62 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ElectricityPriceDto } from './dto/electricity-price.dto';
-import { IElectricityPriceProvider } from './interfaces/electricity-price-provider.interface';
-import { SpotHintaProvider } from './providers/spot-hinta.provider';
-import { DatabaseProvider } from './providers/database.provider';
+import { PriceCacheService } from './services/price-cache.service';
+import { startOfHelsinkiDay } from '../utils/helsinki-time.helper';
 
+/**
+ * Serves electricity prices from memory. Days are Finnish days, from
+ * midnight to midnight Europe/Helsinki time.
+ */
 @Injectable()
 export class ElectricityPriceService {
-  private provider: IElectricityPriceProvider;
-  private fallbackProvider: IElectricityPriceProvider;
-  private readonly logger = new Logger(ElectricityPriceService.name);
-
-  constructor(
-    private spotHintaProvider: SpotHintaProvider,
-    private databaseProvider: DatabaseProvider,
-  ) {
-    // Use database as primary provider and SpotHinta as fallback
-    this.provider = this.databaseProvider;
-    this.fallbackProvider = this.spotHintaProvider;
-  }
+  constructor(private readonly priceCache: PriceCacheService) {}
 
   async getCurrentPrices(): Promise<ElectricityPriceDto[]> {
-    const currentPrice = await this.executeWithFallback(() =>
-      this.provider.getCurrentPrice(),
+    const now = Date.now();
+    const prices = await this.priceCache.getPrices();
+    const current = prices.find(
+      (price) =>
+        Date.parse(price.startDate) <= now && Date.parse(price.endDate) > now,
     );
-    return [currentPrice];
+
+    if (!current) {
+      throw new HttpException(
+        'Current electricity price not available',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+    return [current];
   }
 
   async getTodayPrices(): Promise<ElectricityPriceDto[]> {
-    return this.executeWithFallback(() => this.provider.getTodayPrices());
+    return this.getDayPrices(0);
   }
 
   async getTomorrowPrices(): Promise<ElectricityPriceDto[]> {
-    return this.executeWithFallback(() => this.provider.getTomorrowPrices());
+    return this.getDayPrices(1);
   }
 
+  /**
+   * Prices starting from now onwards: the rest of today and tomorrow when
+   * published.
+   */
   async getFuturePrices(): Promise<ElectricityPriceDto[]> {
-    return this.executeWithFallback(() => this.provider.getFuturePrices());
+    const now = Date.now();
+    const prices = await this.priceCache.getPrices();
+    return prices.filter((price) => Date.parse(price.startDate) >= now);
   }
 
-  private async executeWithFallback<T>(
-    operation: () => Promise<T>,
-  ): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      this.logger.warn(
-        'Primary provider failed, attempting with fallback provider',
-        error,
-      );
+  private async getDayPrices(
+    daysFromToday: number,
+  ): Promise<ElectricityPriceDto[]> {
+    const now = new Date();
+    const dayStart = startOfHelsinkiDay(now, daysFromToday).getTime();
+    const dayEnd = startOfHelsinkiDay(now, daysFromToday + 1).getTime();
 
-      // Switch to fallback provider for this operation
-      const originalProvider = this.provider;
-      this.provider = this.fallbackProvider;
-
-      try {
-        const result = await operation();
-        this.provider = originalProvider; // Restore primary provider
-        return result;
-      } catch (fallbackError) {
-        this.provider = originalProvider; // Restore primary provider
-        this.logger.error('Both providers failed', {
-          primaryError: error,
-          fallbackError,
-        });
-        throw error; // Re-throw the original error
-      }
-    }
+    const prices = await this.priceCache.getPrices();
+    return prices.filter((price) => {
+      const start = Date.parse(price.startDate);
+      return start >= dayStart && start < dayEnd;
+    });
   }
 }
