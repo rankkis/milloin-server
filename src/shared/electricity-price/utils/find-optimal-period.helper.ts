@@ -103,10 +103,10 @@ export function findOptimalPeriod(
     }
 
     if (isConsecutive) {
-      // Convert to price points with tariffs
+      // Convert to price points
       const pricePoints = convertToPricePoints(slot);
 
-      // Calculate average price based on price points (includes VAT and tariffs)
+      // Calculate average price based on price points (includes VAT, no tariffs)
       const priceAvg =
         pricePoints.reduce((sum, point) => sum + point.price, 0) /
         pricePoints.length;

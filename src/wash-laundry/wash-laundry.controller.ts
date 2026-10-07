@@ -31,12 +31,13 @@ export class WashLaundryController {
       - Only shows options that are available and cost-effective
 
       **Response Structure:**
+      - **startDelays**: Cost of starting now or with a timer delay of 1 to 5 hours (1 kWh per wash), cheapest marked with isBest
       - **today**: Only included if currently daytime (06:00-20:00 Finnish time)
       - **tonight**: Only included if cheaper than today's optimal price (20:01-05:59)
       - **tomorrow**: Included during night time OR during day time if cheaper than today (06:00-20:00)
 
       **Pricing Logic:**
-      All recommendations show potential savings compared to the current hour price when available.
+      Prices include VAT but no tariffs. All recommendations show potential savings compared to the current hour price when available.
 
       **Caching:**
       Data is cached with dynamic TTL that expires at the end of the hour when the optimal time starts,

@@ -42,7 +42,7 @@ export class OptimalTimeDto {
 
   @ApiProperty({
     description:
-      'Average electricity price for this period including VAT and tariffs (cents/kWh). Calculated from 15-minute price points. Duration depends on context (2 hours for washing, 4 hours for EV charging, etc.)',
+      'Average electricity price for this period including VAT, without tariffs (cents/kWh). Calculated from 15-minute price points. Duration depends on context (2 hours for washing, 4 hours for EV charging, etc.)',
     example: 10.65,
     type: Number,
     minimum: 0,
