@@ -100,6 +100,9 @@ describe('API (e2e)', () => {
     expectOptimalTime(body.now);
     expect(body.now.pricePoints).toHaveLength(8);
     expect(body.defaults.periodHours).toBe(2);
+    expect(body.defaults.powerConsumptionKwh).toBe(1);
+    expect(body.startDelays).toHaveLength(6);
+    expect(body.startDelays.filter((d) => d.isBest)).toHaveLength(1);
     expect(body.today || body.tonight || body.tomorrow).toBeDefined();
   });
 
