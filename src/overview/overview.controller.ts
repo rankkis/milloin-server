@@ -32,6 +32,8 @@ export class OverviewController {
       - **current**: Current hour price and category classification
       - **next12Hours**: Average price, category, and 15-minute price points for the next 12 hours
       - **future**: Average price, category, and 15-minute price points for all available data (today + tomorrow)
+      - **today**: Hourly average prices for the current Finnish day, 00:00-24:00 Finnish time, past hours included
+      - **cheapestWindow**: Cheapest 2-hour window that has not ended yet (left out when less than 2 hours of prices remain)
 
       **Price Categories:**
       - VERY_CHEAP: < 2.5 c/kWh
@@ -48,7 +50,7 @@ export class OverviewController {
   @ApiResponse({
     status: 200,
     description:
-      'Successful response with electricity price overview including current price, next 12 hours summary, and future price data.',
+      "Successful response with electricity price overview including current price, next 12 hours summary, future price data, today's hourly prices and the cheapest upcoming 2-hour window.",
     type: OverviewDto,
   })
   @ApiServiceUnavailableResponse({
