@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { DatabaseProvider } from '../src/shared/electricity-price/providers/database.provider';
-import { ElectricityPriceModule } from '../src/shared/electricity-price/electricity-price.module';
+import { DatabaseProvider } from '../../src/shared/electricity-price/providers/database.provider';
+import { ElectricityPriceModule } from '../../src/shared/electricity-price/electricity-price.module';
 
 describe('Database Connection (e2e)', () => {
   let app: INestApplication;

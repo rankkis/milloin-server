@@ -18,6 +18,7 @@ export class WashLaundryService {
 
   async getOptimalSchedule(): Promise<WashLaundryForecast> {
     const washingDurationHours = 2; // Typical washing machine cycle
+    const intervalsNeeded = washingDurationHours * 4; // 15-minute intervals
 
     // Get price data for today and tomorrow
     const todayPrices = await this.electricityPriceService.getTodayPrices();
@@ -48,11 +49,11 @@ export class WashLaundryService {
     const allFuturePrices = [...todayPrices, ...tomorrowPrices].filter(
       (price) => new Date(price.endDate) > now,
     );
-    const startingNowPrices = allFuturePrices.slice(0, washingDurationHours);
+    const startingNowPrices = allFuturePrices.slice(0, intervalsNeeded);
 
     // Calculate "now" optimal time (what it costs to start right now)
     let nowOptimal: OptimalTimeDto | null = null;
-    if (startingNowPrices.length >= washingDurationHours) {
+    if (startingNowPrices.length >= intervalsNeeded) {
       const nowOptimalResult = findOptimalPeriod(
         startingNowPrices,
         washingDurationHours,
