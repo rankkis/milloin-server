@@ -13,6 +13,7 @@ the same data that powers [milloin.xyz](https://milloin.xyz).
 
 Prices come from the day-ahead market (ENTSO-E Transparency Platform), in 15-minute
 resolution, in c/kWh including 25.5 % VAT. Times are UTC (ISO 8601, zulu time).
+The OpenAPI document is at [milloin.xyz/api/openapi.json](https://milloin.xyz/api/openapi.json).
 
 **Free to use.** No API key or sign-up is needed. Please keep the request rate reasonable
 and cache responses on your side: day-ahead prices are published once a day, around 14:00
