@@ -98,6 +98,46 @@ describe('OptimalWindowService', () => {
     expect(result.startNow).toBeUndefined();
   });
 
+  it('costs the window starting at each offset from now', async () => {
+    const service = createService(pricesFromNoon([10, 8, 6, 4]));
+
+    const result = await service.findWindows({
+      durationHours: 1,
+      energyKwh: 2,
+      startOffsetsHours: [2, 0, 1, 5],
+    });
+
+    // +5 h runs past the published prices
+    expect(
+      result.startOffsets?.map((w) => [
+        w.offsetHours,
+        w.startTime,
+        w.costCents,
+      ]),
+    ).toEqual([
+      [0, '2025-10-01T12:00:00.000Z', 20],
+      [1, '2025-10-01T13:00:00.000Z', 16],
+      [2, '2025-10-01T14:00:00.000Z', 12],
+    ]);
+    expect(result.startOffsets?.[2].savingsCents).toBe(8);
+  });
+
+  it('leaves startOffsets out when none were asked for', async () => {
+    const service = createService(pricesFromNoon([5, 5]));
+
+    const result = await service.findWindows({ durationHours: 1 });
+
+    expect(result.startOffsets).toBeUndefined();
+  });
+
+  it('rejects an offset that is not whole quarter hours', async () => {
+    const service = createService(pricesFromNoon([5, 5]));
+
+    await expect(
+      service.findWindows({ durationHours: 1, startOffsetsHours: [0.1] }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('rejects a duration that is not whole quarter hours', async () => {
     const service = createService(pricesFromNoon([5, 5]));
 

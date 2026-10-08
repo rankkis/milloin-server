@@ -19,6 +19,14 @@ export class WindowDto extends OptimalTimeDto {
   savingsCents?: number;
 }
 
+export class StartOffsetWindowDto extends WindowDto {
+  @ApiProperty({
+    description: 'Hours from the current 15-minute interval to the start',
+    example: 1,
+  })
+  offsetHours: number;
+}
+
 export class OptimalWindowsDto {
   @ApiProperty({ description: 'Length of each window in hours', example: 3 })
   durationHours: number;
@@ -60,6 +68,14 @@ export class OptimalWindowsDto {
     type: [WindowDto],
   })
   windows: WindowDto[];
+
+  @ApiProperty({
+    description:
+      'The window of each requested start offset, in order of offsetHours. Offsets whose window runs past the published prices are left out. Only when startOffsetsHours was given.',
+    type: [StartOffsetWindowDto],
+    required: false,
+  })
+  startOffsets?: StartOffsetWindowDto[];
 }
 
 export class OptimalWindowPresetDto {
@@ -83,4 +99,13 @@ export class OptimalWindowPresetDto {
     example: 11,
   })
   energyKwh: number;
+
+  @ApiProperty({
+    description:
+      'Start offsets compared, in hours from now (see startOffsetsHours)',
+    example: [0, 1, 2, 3, 4, 5],
+    required: false,
+    type: [Number],
+  })
+  startOffsetsHours?: number[];
 }
