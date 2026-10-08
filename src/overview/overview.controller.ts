@@ -17,7 +17,7 @@ export class OverviewController {
 
   @Get()
   @UseInterceptors(CacheInterceptor)
-  @CacheTTL(calculateCacheTtl())
+  @CacheTTL(() => calculateCacheTtl())
   @ApiOperation({
     summary: 'Get electricity price overview',
     description: `

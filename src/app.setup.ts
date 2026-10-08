@@ -32,7 +32,7 @@ contact [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).
 export function enablePublicCors(app: INestApplication): void {
   app.enableCors({
     origin: '*',
-    methods: ['GET', 'HEAD', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'POST', 'OPTIONS'],
     exposedHeaders: [
       'X-RateLimit-Limit',
       'X-RateLimit-Remaining',
@@ -53,8 +53,15 @@ export function createOpenApiDocument(
     .setVersion('1.0')
     .setContact('Milloin', 'https://milloin.xyz', CONTACT_EMAIL)
     .addTag('overview', 'Current price, upcoming prices and averages')
-    .addTag('wash-laundry', 'When to start the washing machine')
-    .addTag('charge-ev', 'When to charge the electric vehicle')
+    .addTag(
+      'optimal-window',
+      'The cheapest times to run a task: preset cases or your own parameters',
+    )
+    .addTag(
+      'wash-laundry',
+      'Deprecated: use /optimal-window/cases/wash-laundry',
+    )
+    .addTag('charge-ev', 'Deprecated: use /optimal-window/cases/charge-ev')
     .addServer(PUBLIC_API_URL, 'Production');
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),
