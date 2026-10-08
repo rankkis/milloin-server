@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+import { RATE_LIMIT } from './shared/config/rate-limit.config';
 
 export const CONTACT_EMAIL = 'jarkko.peltola@hurlumhei.xyz';
 export const PUBLIC_API_URL = 'https://milloin.xyz/api';
@@ -15,8 +16,9 @@ Prices come from the day-ahead market (ENTSO-E Transparency Platform), in 15-min
 resolution, in c/kWh including 25.5 % VAT. Times are UTC (ISO 8601, zulu time).
 The OpenAPI document is at [milloin.xyz/api/openapi.json](https://milloin.xyz/api/openapi.json).
 
-**Free to use.** No API key or sign-up is needed. Please keep the request rate reasonable
-and cache responses on your side: day-ahead prices are published once a day, around 14:00
+**Free to use.** No API key or sign-up is needed. Each IP address may make
+${RATE_LIMIT.LIMIT} requests per minute; over that the API answers 429 Too Many Requests
+until the minute is up. Please cache responses on your side: day-ahead prices are published once a day, around 14:00
 Finnish time. A link back to [milloin.xyz](https://milloin.xyz) is appreciated.
 
 **Business use.** For higher volumes, guaranteed availability or custom endpoints,
@@ -31,6 +33,12 @@ export function enablePublicCors(app: INestApplication): void {
   app.enableCors({
     origin: '*',
     methods: ['GET', 'HEAD', 'OPTIONS'],
+    exposedHeaders: [
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining',
+      'X-RateLimit-Reset',
+      'Retry-After',
+    ],
     maxAge: 86400, // 24 hours preflight cache
   });
 }

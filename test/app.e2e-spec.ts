@@ -13,6 +13,7 @@ import {
   enablePublicCors,
   setupSwaggerUi,
 } from '../src/app.setup';
+import { RATE_LIMIT } from '../src/shared/config/rate-limit.config';
 
 const QUARTER_MS = 15 * 60 * 1000;
 
@@ -163,6 +164,26 @@ describe('API (e2e)', () => {
     expect(text).toContain('<title>Milloin API</title>');
     await request(app.getHttpServer())
       .get('/api/swagger-ui-init.js')
+      .expect(200);
+  });
+
+  // Last: it uses up this client's requests for the minute
+  it('answers 429 once a client goes over the rate limit', async () => {
+    const client = '203.0.113.7';
+    for (let i = 0; i < RATE_LIMIT.LIMIT; i++) {
+      await request(app.getHttpServer())
+        .get('/overview')
+        .set('X-Forwarded-For', client)
+        .expect(200);
+    }
+    await request(app.getHttpServer())
+      .get('/overview')
+      .set('X-Forwarded-For', client)
+      .expect(429);
+    // Another client still gets through
+    await request(app.getHttpServer())
+      .get('/overview')
+      .set('X-Forwarded-For', '203.0.113.8')
       .expect(200);
   });
 });
