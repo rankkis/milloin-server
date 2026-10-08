@@ -138,20 +138,20 @@ describe('API (e2e)', () => {
     });
   });
 
-  it('GET /optimal-window/cases lists the preset cases', async () => {
+  it('GET /optimal-window/presets lists the presets', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/optimal-window/cases')
+      .get('/optimal-window/presets')
       .expect(200);
 
-    expect(body.map((preset) => preset.case)).toEqual([
+    expect(body.map((preset) => preset.name)).toEqual([
       'wash-laundry',
       'charge-ev',
     ]);
   });
 
-  it('GET /optimal-window/cases/charge-ev returns the 3 cheapest 4-hour windows', async () => {
+  it('GET /optimal-window/presets/charge-ev returns the 3 cheapest 4-hour windows', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/optimal-window/cases/charge-ev')
+      .get('/optimal-window/presets/charge-ev')
       .expect(200);
 
     expect(body).toMatchObject({ durationHours: 4, energyKwh: 11 });
@@ -165,9 +165,9 @@ describe('API (e2e)', () => {
     expect(body.windows[0].savingsCents).toBeGreaterThanOrEqual(0);
   });
 
-  it('GET /optimal-window/cases/unknown answers 404', async () => {
+  it('GET /optimal-window/presets/unknown answers 404', async () => {
     await request(app.getHttpServer())
-      .get('/optimal-window/cases/unknown')
+      .get('/optimal-window/presets/unknown')
       .expect(404);
   });
 

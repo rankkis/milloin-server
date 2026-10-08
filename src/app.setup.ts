@@ -55,13 +55,13 @@ export function createOpenApiDocument(
     .addTag('overview', 'Current price, upcoming prices and averages')
     .addTag(
       'optimal-window',
-      'The cheapest times to run a task: preset cases or your own parameters',
+      'The cheapest times to run a task: presets or your own parameters',
     )
     .addTag(
       'wash-laundry',
-      'Deprecated: use /optimal-window/cases/wash-laundry',
+      'Deprecated: use /optimal-window/presets/wash-laundry',
     )
-    .addTag('charge-ev', 'Deprecated: use /optimal-window/cases/charge-ev')
+    .addTag('charge-ev', 'Deprecated: use /optimal-window/presets/charge-ev')
     .addServer(PUBLIC_API_URL, 'Production');
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),

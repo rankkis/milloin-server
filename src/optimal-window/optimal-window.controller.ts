@@ -25,10 +25,10 @@ import {
   OptimalWindowRequestDto,
 } from './dto/optimal-window-request.dto';
 import {
-  OptimalWindowCaseDto,
+  OptimalWindowPresetDto,
   OptimalWindowsDto,
 } from './dto/optimal-window.dto';
-import { OPTIMAL_WINDOW_CASES } from './optimal-window.cases';
+import { OPTIMAL_WINDOW_PRESETS } from './optimal-window.presets';
 import { OptimalWindowService } from './optimal-window.service';
 
 const UNAVAILABLE =
@@ -65,38 +65,38 @@ export class OptimalWindowController {
     return this.optimalWindowService.findWindows(request);
   }
 
-  @Get('cases')
+  @Get('presets')
   @ApiOperation({
-    summary: 'List the preset cases',
+    summary: 'List the presets',
     description:
-      'The ready-made requests served at /optimal-window/cases/{case}.',
+      'The ready-made requests served at /optimal-window/presets/{preset}.',
   })
-  @ApiOkResponse({ type: [OptimalWindowCaseDto] })
-  listCases(): OptimalWindowCaseDto[] {
-    return OPTIMAL_WINDOW_CASES;
+  @ApiOkResponse({ type: [OptimalWindowPresetDto] })
+  listPresets(): OptimalWindowPresetDto[] {
+    return OPTIMAL_WINDOW_PRESETS;
   }
 
-  @Get('cases/:case')
+  @Get('presets/:preset')
   @UseInterceptors(CacheInterceptor)
   @CacheTTL(() => calculateCacheTtl())
   @ApiOperation({
-    summary: 'Find the cheapest windows for a preset case',
+    summary: 'Find the cheapest windows for a preset',
     description: `
-      Same as POST /optimal-window with the case's duration and energy use, searching all
+      Same as POST /optimal-window with the preset's duration and energy use, searching all
       published prices and returning the ${DEFAULT_WINDOW_COUNT} cheapest windows.
     `,
   })
   @ApiParam({
-    name: 'case',
-    enum: OPTIMAL_WINDOW_CASES.map((preset) => preset.case),
+    name: 'preset',
+    enum: OPTIMAL_WINDOW_PRESETS.map((preset) => preset.name),
   })
   @ApiOkResponse({ type: OptimalWindowsDto })
-  @ApiNotFoundResponse({ description: 'No such case' })
+  @ApiNotFoundResponse({ description: 'No such preset' })
   @ApiServiceUnavailableResponse({ description: UNAVAILABLE })
-  findCaseWindows(@Param('case') name: string): Promise<OptimalWindowsDto> {
-    const preset = OPTIMAL_WINDOW_CASES.find((item) => item.case === name);
+  findPresetWindows(@Param('preset') name: string): Promise<OptimalWindowsDto> {
+    const preset = OPTIMAL_WINDOW_PRESETS.find((item) => item.name === name);
     if (!preset) {
-      throw new NotFoundException(`Unknown case: ${name}`);
+      throw new NotFoundException(`Unknown preset: ${name}`);
     }
     return this.optimalWindowService.findWindows({
       durationHours: preset.durationHours,
