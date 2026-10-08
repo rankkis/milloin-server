@@ -81,6 +81,7 @@ test/
 - Jest configured for testing with coverage support
 - Use zulu-time in dto's
 - The API is public and free to use: any origin may call it (CORS), and its docs are at https://milloin.xyz/api, which milloin-web proxies to this server's Swagger UI. CORS, the OpenAPI document (contact, servers) and Swagger UI are set up in `src/app.setup.ts`, shared by `src/main.ts` and `api/index.ts`
+- Rate limit: 60 requests per minute per client IP (`src/shared/config/rate-limit.config.ts`, @nestjs/throttler). The count is kept in memory, so each Vercel function instance counts separately
 
 ## Important Reminders
 
