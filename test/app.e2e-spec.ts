@@ -109,35 +109,6 @@ describe('API (e2e)', () => {
     expect(body.cheapestWindow.priceAvg).toBe(2);
   });
 
-  it('GET /wash-laundry/optimal-schedule returns a 2-hour schedule', async () => {
-    const { body } = await request(app.getHttpServer())
-      .get('/wash-laundry/optimal-schedule')
-      .expect(200);
-
-    expectOptimalTime(body.now);
-    expect(body.now.pricePoints).toHaveLength(8);
-    expect(body.defaults.periodHours).toBe(2);
-    expect(body.defaults.powerConsumptionKwh).toBe(1.5);
-    expect(body.startDelays).toHaveLength(6);
-    expect(body.startDelays.filter((d) => d.isBest)).toHaveLength(1);
-    expect(body.today || body.tonight || body.tomorrow).toBeDefined();
-  });
-
-  it('GET /charge-ev/optimal-schedule returns a 4-hour schedule', async () => {
-    const { body } = await request(app.getHttpServer())
-      .get('/charge-ev/optimal-schedule')
-      .expect(200);
-
-    expectOptimalTime(body.now);
-    expectOptimalTime(body.next12Hours);
-    expect(body.next12Hours.pricePoints).toHaveLength(16);
-    expect(body.next12Hours.priceAvg).toBeLessThanOrEqual(body.now.priceAvg);
-    expect(body.defaults).toMatchObject({
-      periodHours: 4,
-      powerConsumptionKwh: 11,
-    });
-  });
-
   it('GET /optimal-window/presets lists the presets', async () => {
     const { body } = await request(app.getHttpServer())
       .get('/optimal-window/presets')
@@ -243,8 +214,9 @@ describe('API (e2e)', () => {
     expect(Object.keys(body.paths)).toEqual(
       expect.arrayContaining([
         '/overview',
-        '/wash-laundry/optimal-schedule',
-        '/charge-ev/optimal-schedule',
+        '/optimal-window',
+        '/optimal-window/presets',
+        '/optimal-window/presets/{preset}',
       ]),
     );
   });

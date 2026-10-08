@@ -57,11 +57,6 @@ export function createOpenApiDocument(
       'optimal-window',
       'The cheapest times to run a task: presets or your own parameters',
     )
-    .addTag(
-      'wash-laundry',
-      'Deprecated: use /optimal-window/presets/wash-laundry',
-    )
-    .addTag('charge-ev', 'Deprecated: use /optimal-window/presets/charge-ev')
     .addServer(PUBLIC_API_URL, 'Production');
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),

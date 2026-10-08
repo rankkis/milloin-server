@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { WashLaundryModule } from './wash-laundry/wash-laundry.module';
-import { ChargeEvModule } from './charge-ev/charge-ev.module';
 import { OverviewModule } from './overview/overview.module';
 import { OptimalWindowModule } from './optimal-window/optimal-window.module';
 import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
@@ -16,8 +14,6 @@ import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
       max: 100, // max items in cache
     }),
     ThrottlerModule.forRoot(RATE_LIMIT_OPTIONS),
-    WashLaundryModule,
-    ChargeEvModule,
     OverviewModule,
     OptimalWindowModule,
   ],
