@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "regions": [
+    "arn1"
+  ],
   "builds": [
     {
       "src": "api/index.ts",

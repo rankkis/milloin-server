@@ -1,10 +1,20 @@
-import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ElectricityPriceDto } from '../dto/electricity-price.dto';
 import {
   ELECTRICITY_PRICE_PROVIDERS,
   IElectricityPriceProvider,
 } from '../interfaces/electricity-price-provider.interface';
+import {
+  ISharedPriceCache,
+  SHARED_PRICE_CACHE,
+} from '../interfaces/shared-price-cache.interface';
 import {
   helsinkiParts,
   startOfHelsinkiDay,
@@ -29,14 +39,23 @@ const DELIVERY_DAY_END_UTC_HOUR = 22;
  */
 const MIN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
+const SHARED_CACHE_KEY = 'electricity-prices';
+
+/**
+ * Prices older than today are dropped anyway, so two days covers everything
+ * still useful.
+ */
+const SHARED_CACHE_TTL_SECONDS = 2 * 24 * 60 * 60;
+
 /**
  * Keeps electricity prices in memory.
  *
  * Prices are refreshed when ENTSO-E publishes the next day's prices, and on
  * demand whenever memory is empty or outdated: the request then waits for the
  * fetch, gets the fresh prices and leaves them in memory for the next
- * requests. On serverless hosts memory lives per instance, so a cold start
- * begins empty and fills on its first request.
+ * requests. On serverless hosts memory lives per instance, so a fresh
+ * instance first reads the prices other instances left in the shared cache
+ * and only asks upstream when those are outdated too.
  */
 @Injectable()
 export class PriceCacheService implements OnModuleInit {
@@ -48,6 +67,9 @@ export class PriceCacheService implements OnModuleInit {
   constructor(
     @Inject(ELECTRICITY_PRICE_PROVIDERS)
     private readonly providers: IElectricityPriceProvider[],
+    @Optional()
+    @Inject(SHARED_PRICE_CACHE)
+    private readonly sharedCache?: ISharedPriceCache,
   ) {}
 
   onModuleInit(): void {
@@ -105,18 +127,56 @@ export class PriceCacheService implements OnModuleInit {
   }
 
   /**
-   * Fetches prices and stores them in memory. Concurrent callers share one
-   * fetch.
+   * Loads prices into memory, from the shared cache when it is up to date and
+   * from upstream otherwise. Concurrent callers share one load.
    */
   refresh(): Promise<ElectricityPriceDto[]> {
     if (!this.refreshing) {
-      this.refreshing = this.fetchPrices()
-        .then((prices) => this.store(prices))
-        .finally(() => {
-          this.refreshing = null;
-        });
+      this.refreshing = this.load().finally(() => {
+        this.refreshing = null;
+      });
     }
     return this.refreshing;
+  }
+
+  private async load(): Promise<ElectricityPriceDto[]> {
+    const shared = await this.readSharedCache();
+    if (shared.length > 0) {
+      this.store(shared);
+      if (this.isUpToDate(new Date())) {
+        return this.prices;
+      }
+    }
+
+    const prices = this.store(await this.fetchPrices());
+    await this.writeSharedCache(prices);
+    return prices;
+  }
+
+  private async readSharedCache(): Promise<ElectricityPriceDto[]> {
+    if (!this.sharedCache) {
+      return [];
+    }
+    try {
+      const cached = await this.sharedCache.get(SHARED_CACHE_KEY);
+      return Array.isArray(cached) ? (cached as ElectricityPriceDto[]) : [];
+    } catch (error) {
+      this.logger.warn('Reading shared price cache failed', error);
+      return [];
+    }
+  }
+
+  private async writeSharedCache(prices: ElectricityPriceDto[]): Promise<void> {
+    if (!this.sharedCache) {
+      return;
+    }
+    try {
+      await this.sharedCache.set(SHARED_CACHE_KEY, prices, {
+        ttl: SHARED_CACHE_TTL_SECONDS,
+      });
+    } catch (error) {
+      this.logger.warn('Writing shared price cache failed', error);
+    }
   }
 
   /**
