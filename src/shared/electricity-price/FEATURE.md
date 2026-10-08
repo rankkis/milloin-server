@@ -38,7 +38,7 @@ Holds every price from midnight of the current Finnish day up to the last publis
 3. Outdated prices from memory, as long as they still cover the current time
 4. Otherwise the request fails
 
-**Serverless (Vercel)**: memory lives per function instance and is lost on cold start, and in-process cron does not run while an instance is frozen. A cold instance fetches on its first request and serves from memory afterwards.
+**Serverless (Vercel)**: memory lives per function instance and is lost on cold start, and in-process cron does not run while an instance is frozen. A fresh instance first reads the prices other instances left in Vercel's runtime cache (`SHARED_PRICE_CACHE`, shared by all instances and kept across deploys) and only fetches upstream when those are outdated too. ENTSO-E takes 2-4 s to answer, so this keeps the first request after a deploy or an idle period fast. Outside Vercel the shared cache lives in process memory.
 
 ### Providers (`IElectricityPriceProvider`)
 Each price source implements one method, `fetchPrices(start, end)`, and only fetches. `PriceCacheService` decides when to fetch, tries the providers in the order given by the `ELECTRICITY_PRICE_PROVIDERS` token in `electricity-price.module.ts`, and uses the first non-empty result. To add a source, implement the interface and add it to that list.

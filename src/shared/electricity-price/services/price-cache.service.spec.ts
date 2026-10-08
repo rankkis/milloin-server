@@ -159,4 +159,49 @@ describe('PriceCacheService', () => {
     expect(result[0].startDate).toBe('2026-10-07T21:00:00.000Z');
     expect(result[result.length - 1].endDate).toBe('2026-10-09T22:00:00.000Z');
   });
+
+  describe('with a shared cache', () => {
+    let shared: { get: jest.Mock; set: jest.Mock };
+
+    beforeEach(() => {
+      shared = {
+        get: jest.fn().mockResolvedValue(null),
+        set: jest.fn().mockResolvedValue(undefined),
+      };
+      cache = new PriceCacheService([entsoe, spotHinta], shared);
+    });
+
+    it('uses up-to-date shared prices without asking upstream', async () => {
+      setNow('2026-10-07T08:00Z');
+      shared.get.mockResolvedValue(todayOnly());
+
+      const result = await cache.getPrices();
+
+      expect(result).toHaveLength(88);
+      expect(entsoe.fetchPrices).not.toHaveBeenCalled();
+      expect(shared.set).not.toHaveBeenCalled();
+    });
+
+    it('fetches upstream and shares the result when shared prices are outdated', async () => {
+      setNow('2026-10-07T12:00Z'); // 15:00 in Finland, tomorrow is due
+      shared.get.mockResolvedValue(todayOnly());
+      entsoe.fetchPrices.mockResolvedValue(todayAndTomorrow());
+
+      const result = await cache.getPrices();
+
+      expect(result).toHaveLength(184);
+      expect(shared.set).toHaveBeenCalledWith('electricity-prices', result, {
+        ttl: 2 * 24 * 60 * 60,
+      });
+    });
+
+    it('fetches upstream when the shared cache fails', async () => {
+      setNow('2026-10-07T08:00Z');
+      shared.get.mockRejectedValue(new Error('cache down'));
+      shared.set.mockRejectedValue(new Error('cache down'));
+      entsoe.fetchPrices.mockResolvedValue(todayOnly());
+
+      await expect(cache.getPrices()).resolves.toHaveLength(88);
+    });
+  });
 });
