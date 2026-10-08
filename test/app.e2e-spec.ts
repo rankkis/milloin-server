@@ -88,6 +88,9 @@ describe('API (e2e)', () => {
     expect(body.today[0].startTime).toBe(
       startOfHelsinkiDay(new Date()).toISOString(),
     );
+    expect(body.upcomingHours[0].startTime).toBe(
+      new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString(),
+    );
     expect(body.cheapestWindow.pricePoints).toHaveLength(8);
     expect(body.cheapestWindow.priceAvg).toBe(2);
   });
@@ -100,7 +103,7 @@ describe('API (e2e)', () => {
     expectOptimalTime(body.now);
     expect(body.now.pricePoints).toHaveLength(8);
     expect(body.defaults.periodHours).toBe(2);
-    expect(body.defaults.powerConsumptionKwh).toBe(1);
+    expect(body.defaults.powerConsumptionKwh).toBe(1.5);
     expect(body.startDelays).toHaveLength(6);
     expect(body.startDelays.filter((d) => d.isBest)).toHaveLength(1);
     expect(body.today || body.tonight || body.tomorrow).toBeDefined();

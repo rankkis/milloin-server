@@ -48,6 +48,10 @@ export class OverviewService {
     const future = this.calculateFutureSummary(futurePrices);
 
     const today = this.calculateHourlyPrices(todayPrices);
+    const upcomingHours = this.calculateUpcomingHours([
+      ...todayPrices,
+      ...tomorrowPrices,
+    ]);
     const cheapestWindow = this.findCheapestWindow([
       ...todayPrices,
       ...tomorrowPrices,
@@ -58,6 +62,7 @@ export class OverviewService {
       next12Hours,
       future,
       today,
+      upcomingHours,
       ...(cheapestWindow && { cheapestWindow }),
     };
   }
@@ -77,23 +82,50 @@ export class OverviewService {
       const hourIndex = Math.floor(
         (Date.parse(price.startDate) - dayStart) / HOUR_MS,
       );
-      const cents = price.price * 100;
-      hours.set(hourIndex, [...(hours.get(hourIndex) ?? []), cents]);
+      hours.set(hourIndex, [...(hours.get(hourIndex) ?? []), price.price]);
     }
 
     return [...hours.entries()]
       .sort(([a], [b]) => a - b)
-      .map(([hourIndex, cents]) => {
-        const start = dayStart + hourIndex * HOUR_MS;
-        const avg = cents.reduce((sum, c) => sum + c, 0) / cents.length;
-        const priceAvg = Math.round(avg * 100) / 100;
-        return {
-          startTime: new Date(start).toISOString(),
-          endTime: new Date(start + HOUR_MS).toISOString(),
-          priceAvg,
-          priceCategory: calculatePriceCategory(priceAvg),
-        };
-      });
+      .map(([hourIndex, euros]) =>
+        this.hourlyPrice(dayStart + hourIndex * HOUR_MS, euros),
+      );
+  }
+
+  /**
+   * Hourly prices from the start of the current hour to the last published
+   * price. Finnish clock hours start on whole UTC hours, so quarters are
+   * grouped by UTC hour.
+   */
+  private calculateUpcomingHours(
+    prices: ElectricityPriceDto[],
+  ): HourlyPriceDto[] {
+    const currentHourStart = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+    const hours = new Map<number, number[]>();
+
+    for (const price of prices) {
+      const hourStart =
+        Math.floor(Date.parse(price.startDate) / HOUR_MS) * HOUR_MS;
+      if (hourStart < currentHourStart) continue;
+      hours.set(hourStart, [...(hours.get(hourStart) ?? []), price.price]);
+    }
+
+    return [...hours.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([hourStart, euros]) => this.hourlyPrice(hourStart, euros));
+  }
+
+  /** Average of one hour's quarter prices, given in EUR/kWh */
+  private hourlyPrice(hourStart: number, euros: number[]): HourlyPriceDto {
+    const avgCents =
+      (euros.reduce((sum, e) => sum + e, 0) / euros.length) * 100;
+    const priceAvg = Math.round(avgCents * 100) / 100;
+    return {
+      startTime: new Date(hourStart).toISOString(),
+      endTime: new Date(hourStart + HOUR_MS).toISOString(),
+      priceAvg,
+      priceCategory: calculatePriceCategory(priceAvg),
+    };
   }
 
   /**

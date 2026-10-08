@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { WashLaundryService } from './wash-laundry.service';
 import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
 import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
+import { PriceCategory } from '../shared/dto/price-category.enum';
 
 const QUARTER_MS = 15 * 60 * 1000;
 const HOUR_MS = 4 * QUARTER_MS;
@@ -132,7 +133,9 @@ describe('WashLaundryService', () => {
         endTime: finnishTime(13, 15).toISOString(),
         // 7 quarters at 4 cents and 1 at 10 = 38 / 8
         priceAvg: 4.75,
-        costCents: 4.75,
+        priceCategory: PriceCategory.CHEAP,
+        // 4.75 c/kWh × 1.5 kWh
+        costCents: 7.13,
         isBest: true,
       });
       // 3 quarters at 10 cents and 5 at 4 = 50 / 8
@@ -150,14 +153,14 @@ describe('WashLaundryService', () => {
       expect(startDelays.filter((d) => d.isBest)).toHaveLength(1);
     });
 
-    it('uses 1 kWh per wash for the cost', async () => {
+    it('uses 1.5 kWh per wash for the cost', async () => {
       at(finnishTime(10));
-      givenPrices(finnishDay(TODAY_START, pricing(0.0333)));
+      givenPrices(finnishDay(TODAY_START, pricing(0.04)));
 
       const { startDelays, defaults } = await service.getOptimalSchedule();
 
-      expect(defaults.powerConsumptionKwh).toBe(1);
-      expect(startDelays[0].costCents).toBe(3.33);
+      expect(defaults.powerConsumptionKwh).toBe(1.5);
+      expect(startDelays[0].costCents).toBe(6);
     });
 
     it("continues into tomorrow's prices", async () => {

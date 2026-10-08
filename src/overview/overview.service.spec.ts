@@ -132,6 +132,49 @@ describe('OverviewService', () => {
     });
   });
 
+  describe('upcomingHours', () => {
+    // 2026-07-15 00:00 Finnish summer time (UTC+3)
+    const DAY_START = '2026-07-14T21:00:00.000Z';
+    const TOMORROW_START = '2026-07-15T21:00:00.000Z';
+
+    it('starts at the current hour, its past quarters included', async () => {
+      // Quarters cost 1, 2, 3 and 4 cents within each hour
+      givenPrices(
+        '2026-07-15T09:40:00.000Z', // 12:40 Finnish time
+        quarters(DAY_START, 96, (q) => ((q % 4) + 1) / 100),
+      );
+
+      const { upcomingHours } = await service.getOverview();
+
+      expect(upcomingHours).toHaveLength(12);
+      expect(upcomingHours[0]).toEqual({
+        startTime: '2026-07-15T09:00:00.000Z',
+        endTime: '2026-07-15T10:00:00.000Z',
+        priceAvg: 2.5,
+        priceCategory: PriceCategory.CHEAP,
+      });
+      expect(upcomingHours[11].endTime).toBe(TOMORROW_START);
+    });
+
+    it("runs to the end of tomorrow's prices once they are published", async () => {
+      givenPrices(
+        '2026-07-15T11:00:00.000Z',
+        quarters(DAY_START, 96, () => 0.05),
+        quarters(TOMORROW_START, 96, () => 0.02),
+      );
+
+      const { upcomingHours } = await service.getOverview();
+
+      expect(upcomingHours).toHaveLength(34);
+      expect(upcomingHours[33]).toEqual({
+        startTime: '2026-07-16T20:00:00.000Z',
+        endTime: '2026-07-16T21:00:00.000Z',
+        priceAvg: 2,
+        priceCategory: PriceCategory.VERY_CHEAP,
+      });
+    });
+  });
+
   describe('cheapestWindow', () => {
     const DAY_START = '2026-07-14T21:00:00.000Z';
 

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PriceCategory } from '../../shared/dto/price-category.enum';
 
 export class StartDelayDto {
   @ApiProperty({
@@ -32,6 +33,13 @@ export class StartDelayDto {
     minimum: 0,
   })
   priceAvg: number;
+
+  @ApiProperty({
+    description: 'Price category of priceAvg',
+    enum: PriceCategory,
+    example: PriceCategory.CHEAP,
+  })
+  priceCategory: PriceCategory;
 
   @ApiProperty({
     description:
