@@ -165,6 +165,22 @@ describe('API (e2e)', () => {
     expect(body.windows[0].savingsCents).toBeGreaterThanOrEqual(0);
   });
 
+  it('GET /optimal-window/presets/wash-laundry compares starting now and in 1 to 5 hours', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/optimal-window/presets/wash-laundry')
+      .expect(200);
+
+    expect(body).toMatchObject({ durationHours: 2, energyKwh: 1.5 });
+    expect(body.startOffsets.map((window) => window.offsetHours)).toEqual([
+      0, 1, 2, 3, 4, 5,
+    ]);
+    expect(body.startOffsets[0].startTime).toBe(body.startNow.startTime);
+    body.startOffsets.forEach((window) => {
+      expect(window.pricePoints).toHaveLength(8);
+      expect(window.costCents).toBeCloseTo(window.priceAvg * 1.5);
+    });
+  });
+
   it('GET /optimal-window/presets/unknown answers 404', async () => {
     await request(app.getHttpServer())
       .get('/optimal-window/presets/unknown')
@@ -190,6 +206,10 @@ describe('API (e2e)', () => {
     await request(app.getHttpServer())
       .post('/optimal-window')
       .send({ durationHours: 2, unknown: true })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/optimal-window')
+      .send({ durationHours: 2, startOffsetsHours: [0, 30] })
       .expect(400);
   });
 

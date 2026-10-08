@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsDateString,
   IsInt,
   IsNumber,
@@ -10,6 +13,8 @@ import {
 
 export const MAX_WINDOW_COUNT = 10;
 export const DEFAULT_WINDOW_COUNT = 3;
+export const MAX_START_OFFSETS = 25;
+export const MAX_START_OFFSET_HOURS = 24;
 
 export class OptimalWindowRequestDto {
   @ApiProperty({
@@ -74,4 +79,19 @@ export class OptimalWindowRequestDto {
   @Min(1)
   @Max(MAX_WINDOW_COUNT)
   count?: number;
+
+  @ApiProperty({
+    description: `Start times to compare, in hours from the current 15-minute interval: 0 is now, 1 is in an hour, like a timer delay. Steps of 0.25 h, at most ${MAX_START_OFFSET_HOURS} h and ${MAX_START_OFFSETS} offsets. When given, the response lists each offset's window in startOffsets. Not limited by earliestStart or latestEnd.`,
+    example: [0, 1, 2, 3, 4, 5],
+    required: false,
+    type: [Number],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_START_OFFSETS)
+  @ArrayUnique()
+  @IsNumber({}, { each: true })
+  @Min(0, { each: true })
+  @Max(MAX_START_OFFSET_HOURS, { each: true })
+  startOffsetsHours?: number[];
 }

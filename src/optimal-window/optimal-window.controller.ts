@@ -82,7 +82,7 @@ export class OptimalWindowController {
   @ApiOperation({
     summary: 'Find the cheapest windows for a preset',
     description: `
-      Same as POST /optimal-window with the preset's duration and energy use, searching all
+      Same as POST /optimal-window with the preset's duration, energy use and start offsets, searching all
       published prices and returning the ${DEFAULT_WINDOW_COUNT} cheapest windows.
     `,
   })
@@ -101,6 +101,9 @@ export class OptimalWindowController {
     return this.optimalWindowService.findWindows({
       durationHours: preset.durationHours,
       energyKwh: preset.energyKwh,
+      ...(preset.startOffsetsHours && {
+        startOffsetsHours: preset.startOffsetsHours,
+      }),
     });
   }
 }
