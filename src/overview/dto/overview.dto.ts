@@ -122,6 +122,13 @@ export class OverviewDto {
 
   @ApiProperty({
     description:
+      "Hourly prices from the start of the current hour to the last published price, which runs into tomorrow once tomorrow's prices are published. Each entry averages the hour's 15-minute prices.",
+    type: [HourlyPriceDto],
+  })
+  upcomingHours: HourlyPriceDto[];
+
+  @ApiProperty({
+    description:
       'Cheapest 2-hour window that has not ended yet, within all available prices. Starts at the current quarter hour at the earliest. Left out when less than 2 hours of prices remain.',
     type: OptimalTimeDto,
     required: false,

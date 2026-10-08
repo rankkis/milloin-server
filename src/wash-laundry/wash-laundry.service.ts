@@ -8,7 +8,7 @@ import { WashLaundryForecastDto } from './dto/wash-laundry-forecast.dto';
 import { StartDelayDto } from './dto/start-delay.dto';
 
 /** Electricity used by one wash (kWh) */
-export const WASH_ENERGY_KWH = 1;
+export const WASH_ENERGY_KWH = 1.5;
 /** Timer delays offered to the user: now and +1 … +5 hours */
 const MAX_START_DELAY_HOURS = 5;
 
@@ -184,6 +184,7 @@ export class WashLaundryService {
         startTime: period.startTime,
         endTime: period.endTime,
         priceAvg: period.priceAvg,
+        priceCategory: period.priceCategory,
         costCents: Math.round(period.priceAvg * WASH_ENERGY_KWH * 100) / 100,
         isBest: false,
       });
