@@ -193,7 +193,8 @@ export class EntsoeProvider implements IElectricityPriceProvider {
       ? document.TimeSeries
       : [document.TimeSeries];
 
-    const prices: ElectricityPriceDto[] = [];
+    // Keyed by start time, so overlapping series can't duplicate a quarter
+    const prices = new Map<number, ElectricityPriceDto>();
 
     for (const series of timeSeries) {
       const periods = Array.isArray(series.Period)
@@ -211,29 +212,39 @@ export class EntsoeProvider implements IElectricityPriceProvider {
           `Processing ${points.length} price points with ${period.resolution} resolution`,
         );
 
-        for (const point of points) {
-          const position = parseInt(point.position) - 1; // ENTSO-E uses 1-based indexing
-          const priceStartTime = new Date(
-            startTime.getTime() + position * resolutionMs,
-          );
-          const priceEndTime = new Date(
-            priceStartTime.getTime() + resolutionMs,
-          );
+        // Curve type A03 leaves out a point whose price equals the previous
+        // one, so every position of the period is filled from the last
+        // listed price. Without this the series has gaps.
+        const listed = new Map(
+          points.map((point) => [
+            parseInt(point.position), // ENTSO-E uses 1-based positions
+            parseFloat(point['price.amount']),
+          ]),
+        );
+        const positions = Math.round(
+          (Date.parse(period.timeInterval.end) - startTime.getTime()) /
+            resolutionMs,
+        );
 
-          const priceEurMwh = parseFloat(point['price.amount']);
-          const priceEurKwh = (priceEurMwh / 1000) * this.VAT_MULTIPLIER; // Convert from EUR/MWh to EUR/kWh and add VAT
+        let priceEurMwh: number | undefined;
+        for (let position = 1; position <= positions; position++) {
+          priceEurMwh = listed.get(position) ?? priceEurMwh;
+          if (priceEurMwh === undefined) continue;
 
-          prices.push({
-            price: priceEurKwh,
-            startDate: priceStartTime.toISOString(),
-            endDate: priceEndTime.toISOString(),
+          const priceStart =
+            startTime.getTime() + (position - 1) * resolutionMs;
+          prices.set(priceStart, {
+            // EUR/MWh to EUR/kWh with VAT
+            price: (priceEurMwh / 1000) * this.VAT_MULTIPLIER,
+            startDate: new Date(priceStart).toISOString(),
+            endDate: new Date(priceStart + resolutionMs).toISOString(),
           });
         }
       }
     }
 
-    return prices.sort(
-      (a, b) => Date.parse(a.startDate) - Date.parse(b.startDate),
-    );
+    return [...prices.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, price]) => price);
   }
 }
