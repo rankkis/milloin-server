@@ -13,7 +13,10 @@ import {
   enablePublicCors,
   setupSwaggerUi,
 } from '../src/app.setup';
-import { RATE_LIMIT } from '../src/shared/config/rate-limit.config';
+import {
+  RATE_LIMIT,
+  SSR_KEY_HEADER,
+} from '../src/shared/config/rate-limit.config';
 
 const QUARTER_MS = 15 * 60 * 1000;
 
@@ -39,6 +42,7 @@ describe('API (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
+    process.env.SSR_API_KEY = 'test-ssr-key';
     const prices = createPrices();
     const now = () => Date.now();
     const future = () => prices.filter((p) => Date.parse(p.endDate) > now());
@@ -185,5 +189,16 @@ describe('API (e2e)', () => {
       .get('/overview')
       .set('X-Forwarded-For', '203.0.113.8')
       .expect(200);
+    // milloin-web's server-side rendering is not limited
+    await request(app.getHttpServer())
+      .get('/overview')
+      .set('X-Forwarded-For', client)
+      .set(SSR_KEY_HEADER, 'test-ssr-key')
+      .expect(200);
+    await request(app.getHttpServer())
+      .get('/overview')
+      .set('X-Forwarded-For', client)
+      .set(SSR_KEY_HEADER, 'wrong-key')
+      .expect(429);
   });
 });
