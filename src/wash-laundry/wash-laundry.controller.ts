@@ -17,10 +17,13 @@ export class WashLaundryController {
 
   @Get('optimal-schedule')
   @UseInterceptors(CacheInterceptor)
-  @CacheTTL(calculateCacheTtl())
+  @CacheTTL(() => calculateCacheTtl())
   @ApiOperation({
+    deprecated: true,
     summary: 'Get optimal laundry washing schedule',
     description: `
+      Deprecated: use GET /optimal-window/cases/wash-laundry, or POST /optimal-window for your own parameters. Kept for existing clients.
+
       Returns optimal schedule for washing laundry based on Finnish electricity spot prices.
 
       **How it works:**
@@ -31,7 +34,7 @@ export class WashLaundryController {
       - Only shows options that are available and cost-effective
 
       **Response Structure:**
-      - **startDelays**: Cost of starting now or with a timer delay of 1 to 5 hours (1 kWh per wash), cheapest marked with isBest
+      - **startDelays**: Cost of starting now or with a timer delay of 1 to 5 hours (1.5 kWh per wash), cheapest marked with isBest
       - **today**: Only included if currently daytime (06:00-20:00 Finnish time)
       - **tonight**: Only included if cheaper than today's optimal price (20:01-05:59)
       - **tomorrow**: Included during night time OR during day time if cheaper than today (06:00-20:00)

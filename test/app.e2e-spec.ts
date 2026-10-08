@@ -138,12 +138,79 @@ describe('API (e2e)', () => {
     });
   });
 
+  it('GET /optimal-window/cases lists the preset cases', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/optimal-window/cases')
+      .expect(200);
+
+    expect(body.map((preset) => preset.case)).toEqual([
+      'wash-laundry',
+      'charge-ev',
+    ]);
+  });
+
+  it('GET /optimal-window/cases/charge-ev returns the 3 cheapest 4-hour windows', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/optimal-window/cases/charge-ev')
+      .expect(200);
+
+    expect(body).toMatchObject({ durationHours: 4, energyKwh: 11 });
+    expect(body.windows).toHaveLength(3);
+    body.windows.forEach((window) => {
+      expectOptimalTime(window);
+      expect(window.pricePoints).toHaveLength(16);
+    });
+    const averages = body.windows.map((window) => window.priceAvg);
+    expect(averages).toEqual([...averages].sort((a, b) => a - b));
+    expect(body.windows[0].savingsCents).toBeGreaterThanOrEqual(0);
+  });
+
+  it('GET /optimal-window/cases/unknown answers 404', async () => {
+    await request(app.getHttpServer())
+      .get('/optimal-window/cases/unknown')
+      .expect(404);
+  });
+
+  it('POST /optimal-window finds windows for custom parameters', async () => {
+    const { body } = await request(app.getHttpServer())
+      .post('/optimal-window')
+      .send({ durationHours: 1.5, energyKwh: 3, count: 2 })
+      .expect(200);
+
+    expect(body.windows).toHaveLength(2);
+    expect(body.windows[0].pricePoints).toHaveLength(6);
+    expect(body.windows[0].costCents).toBeCloseTo(body.windows[0].priceAvg * 3);
+  });
+
+  it('POST /optimal-window rejects invalid parameters', async () => {
+    await request(app.getHttpServer())
+      .post('/optimal-window')
+      .send({ durationHours: 30 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/optimal-window')
+      .send({ durationHours: 2, unknown: true })
+      .expect(400);
+  });
+
   it('allows browser requests from any origin', async () => {
     await request(app.getHttpServer())
       .get('/overview')
       .set('Origin', 'https://example.com')
       .expect(200)
       .expect('Access-Control-Allow-Origin', '*');
+  });
+
+  it('lets browsers POST JSON from any origin', async () => {
+    const { headers } = await request(app.getHttpServer())
+      .options('/optimal-window')
+      .set('Origin', 'https://example.com')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type')
+      .expect(204);
+
+    expect(headers['access-control-allow-methods']).toContain('POST');
+    expect(headers['access-control-allow-headers']).toContain('content-type');
   });
 
   it('GET /api-json describes the public API with a contact', async () => {

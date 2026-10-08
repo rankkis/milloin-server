@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { WashLaundryModule } from './wash-laundry/wash-laundry.module';
 import { ChargeEvModule } from './charge-ev/charge-ev.module';
 import { OverviewModule } from './overview/overview.module';
+import { OptimalWindowModule } from './optimal-window/optimal-window.module';
 import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
 
 @Module({
@@ -18,6 +19,7 @@ import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
     WashLaundryModule,
     ChargeEvModule,
     OverviewModule,
+    OptimalWindowModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
