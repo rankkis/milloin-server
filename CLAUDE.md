@@ -80,6 +80,7 @@ test/
 - ESLint and Prettier configured for code consistency
 - Jest configured for testing with coverage support
 - Use zulu-time in dto's
+- The API is public and free to use: any origin may call it (CORS), and its docs are at https://milloin.xyz/api, which milloin-web proxies to this server's Swagger UI. CORS, the OpenAPI document (contact, servers) and Swagger UI are set up in `src/app.setup.ts`, shared by `src/main.ts` and `api/index.ts`
 
 ## Important Reminders
 

@@ -6,6 +6,13 @@ import { ElectricityPriceService } from '../src/shared/electricity-price/electri
 import { ElectricityPriceDto } from '../src/shared/electricity-price/dto/electricity-price.dto';
 import { PriceCacheService } from '../src/shared/electricity-price/services/price-cache.service';
 import { startOfHelsinkiDay } from '../src/shared/utils/helsinki-time.helper';
+import {
+  CONTACT_EMAIL,
+  PUBLIC_API_URL,
+  createOpenApiDocument,
+  enablePublicCors,
+  setupSwaggerUi,
+} from '../src/app.setup';
 
 const QUARTER_MS = 15 * 60 * 1000;
 
@@ -60,6 +67,8 @@ describe('API (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    enablePublicCors(app);
+    setupSwaggerUi(app, createOpenApiDocument(app));
     await app.init();
   });
 
@@ -122,5 +131,38 @@ describe('API (e2e)', () => {
       periodHours: 4,
       powerConsumptionKwh: 11,
     });
+  });
+
+  it('allows browser requests from any origin', async () => {
+    await request(app.getHttpServer())
+      .get('/overview')
+      .set('Origin', 'https://example.com')
+      .expect(200)
+      .expect('Access-Control-Allow-Origin', '*');
+  });
+
+  it('GET /api-json describes the public API with a contact', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/api-json')
+      .expect(200);
+
+    expect(body.info.contact.email).toBe(CONTACT_EMAIL);
+    expect(body.servers[0].url).toBe(PUBLIC_API_URL);
+    expect(Object.keys(body.paths)).toEqual(
+      expect.arrayContaining([
+        '/overview',
+        '/wash-laundry/optimal-schedule',
+        '/charge-ev/optimal-schedule',
+      ]),
+    );
+  });
+
+  it('GET /api serves Swagger UI', async () => {
+    const { text } = await request(app.getHttpServer()).get('/api').expect(200);
+
+    expect(text).toContain('<title>Milloin API</title>');
+    await request(app.getHttpServer())
+      .get('/api/swagger-ui-init.js')
+      .expect(200);
   });
 });
