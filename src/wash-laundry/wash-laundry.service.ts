@@ -11,6 +11,8 @@ import { StartDelayDto } from './dto/start-delay.dto';
 export const WASH_ENERGY_KWH = 1.5;
 /** Timer delays offered to the user: now and +1 … +5 hours */
 const MAX_START_DELAY_HOURS = 5;
+const QUARTER_MS = 15 * 60 * 1000;
+const HOUR_MS = 4 * QUARTER_MS;
 
 // Re-export DTOs for backwards compatibility
 export type WashLaundryForecast = WashLaundryForecastDto;
@@ -163,21 +165,32 @@ export class WashLaundryService {
     durationHours: number,
   ): StartDelayDto[] {
     const delays: StartDelayDto[] = [];
+    if (futurePrices.length === 0) return delays;
+
+    // Quarters are looked up by start time, so a missing quarter only drops
+    // the delays whose program overlaps it
+    const byStart = new Map(
+      futurePrices.map((price) => [Date.parse(price.startDate), price]),
+    );
+    const firstStart = Date.parse(futurePrices[0].startDate);
 
     for (
       let delayHours = 0;
       delayHours <= MAX_START_DELAY_HOURS;
       delayHours++
     ) {
-      const slot = futurePrices.slice(
-        delayHours * 4,
-        (delayHours + durationHours) * 4,
+      const start = firstStart + delayHours * HOUR_MS;
+      const slot = Array.from({ length: durationHours * 4 }, (_, q) =>
+        byStart.get(start + q * QUARTER_MS),
       );
-      const [period] =
-        slot.length === durationHours * 4
-          ? findOptimalPeriod(slot, durationHours, 1)
-          : [];
-      if (!period) break;
+      if (slot.some((price) => !price)) continue;
+
+      const [period] = findOptimalPeriod(
+        slot as ElectricityPriceDto[],
+        durationHours,
+        1,
+      );
+      if (!period) continue;
 
       delays.push({
         delayHours,

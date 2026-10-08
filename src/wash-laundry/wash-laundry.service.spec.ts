@@ -143,6 +143,22 @@ describe('WashLaundryService', () => {
       expect(startDelays.filter((d) => d.isBest)).toHaveLength(1);
     });
 
+    it('skips only the delays whose program overlaps a missing quarter', async () => {
+      at(finnishTime(10));
+      // 13:30-13:45 Finnish time is missing
+      const gap = finnishTime(13, 30).toISOString();
+      givenPrices(
+        finnishDay(TODAY_START, pricing(0.1)).filter(
+          (p) => p.startDate !== gap,
+        ),
+      );
+
+      const { startDelays } = await service.getOptimalSchedule();
+
+      // +2 (12:00-14:00) and +3 (13:00-15:00) cover the gap
+      expect(startDelays.map((d) => d.delayHours)).toEqual([0, 1, 4, 5]);
+    });
+
     it('prefers the earliest delay on a tie', async () => {
       at(finnishTime(10));
       givenPrices(finnishDay(TODAY_START, pricing(0.1)));
