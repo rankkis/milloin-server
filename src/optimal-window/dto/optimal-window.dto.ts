@@ -62,15 +62,15 @@ export class OptimalWindowsDto {
   windows: WindowDto[];
 }
 
-export class OptimalWindowCaseDto {
+export class OptimalWindowPresetDto {
   @ApiProperty({
-    description: 'Name of the case, used in /optimal-window/cases/{case}',
+    description: 'Name of the preset, used in /optimal-window/presets/{preset}',
     example: 'charge-ev',
   })
-  case: string;
+  name: string;
 
   @ApiProperty({
-    description: 'What the case is for',
+    description: 'What the preset is for',
     example: 'Charging an electric vehicle',
   })
   description: string;

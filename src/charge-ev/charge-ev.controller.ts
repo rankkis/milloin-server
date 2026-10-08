@@ -22,7 +22,7 @@ export class ChargeEvController {
     deprecated: true,
     summary: 'Get optimal EV charging schedule',
     description: `
-      Deprecated: use GET /optimal-window/cases/charge-ev, or POST /optimal-window for your own parameters. Kept for existing clients.
+      Deprecated: use GET /optimal-window/presets/charge-ev, or POST /optimal-window for your own parameters. Kept for existing clients.
 
       Returns optimal schedule for charging an electric vehicle based on Finnish electricity spot prices.
 

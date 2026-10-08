@@ -22,7 +22,7 @@ export class WashLaundryController {
     deprecated: true,
     summary: 'Get optimal laundry washing schedule',
     description: `
-      Deprecated: use GET /optimal-window/cases/wash-laundry, or POST /optimal-window for your own parameters. Kept for existing clients.
+      Deprecated: use GET /optimal-window/presets/wash-laundry, or POST /optimal-window for your own parameters. Kept for existing clients.
 
       Returns optimal schedule for washing laundry based on Finnish electricity spot prices.
 
