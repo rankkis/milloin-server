@@ -23,9 +23,10 @@ More match sources can be added to `TEAM_DATA_PROVIDERS` in `ence.module.ts`; th
 ## Caching
 
 `EnceCacheService` works like the electricity price cache:
+
 - Data is fetched again when it is over 60 minutes old: on demand (the request waits, concurrent requests share one fetch) and hourly at :05 on long-lived hosts.
 - After a failed fetch, older data is served, and upstream is asked again at most every 10 minutes. With nothing cached the endpoint answers 503.
-- On Vercel a fresh instance reads what other instances left in the runtime cache (`ENCE_SHARED_CACHE`) before fetching.
+- On Vercel a fresh instance reads what other instances of the same deployment left in the runtime cache (`ENCE_SHARED_CACHE`) before fetching. A new deployment ignores older data and fetches on startup, so a fix shows at once.
 - Logos are copied once from the source (images only, at most 512 KB) and kept 30 days; the response gives their paths (`ence/logos/<id>`, relative to the API root), so visitors' browsers never load them from the source.
 
 ## Rules (`ence.service.ts`)
