@@ -1,40 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class ScheduleSlotDto {
-  @ApiProperty({
-    description: 'Start of the 15-minute slot (ISO 8601, Zulu)',
-    example: '2025-10-02T01:00:00.000Z',
-    type: String,
-  })
-  startTime: string;
-
-  @ApiProperty({
-    description: 'End of the 15-minute slot (ISO 8601, Zulu)',
-    example: '2025-10-02T01:15:00.000Z',
-    type: String,
-  })
-  endTime: string;
-
-  @ApiProperty({
-    description: 'Electricity price including VAT (cents/kWh)',
-    example: 2.15,
-  })
-  price: number;
-
-  @ApiProperty({
-    description:
-      'Power to draw during the slot (kW): maxPowerKw, or less in the one slot that tops up the rest',
-    example: 11,
-  })
-  powerKw: number;
-
-  @ApiProperty({ description: 'Energy drawn in the slot (kWh)', example: 2.75 })
-  energyKwh: number;
-
-  @ApiProperty({ description: 'Cost of the slot in cents', example: 5.91 })
-  costCents: number;
-}
-
 export class ScheduleBlockDto {
   @ApiProperty({
     description: 'When to switch on (ISO 8601, Zulu)',
@@ -44,7 +9,8 @@ export class ScheduleBlockDto {
   startTime: string;
 
   @ApiProperty({
-    description: 'When to switch off (ISO 8601, Zulu)',
+    description:
+      'When to switch off at the latest (ISO 8601, Zulu). Running at maxPowerKw, the energy of the block may be in up to 15 minutes earlier.',
     example: '2025-10-02T03:00:00.000Z',
     type: String,
   })
@@ -61,9 +27,6 @@ export class ScheduleBlockDto {
     example: 2.15,
   })
   priceAvg: number;
-
-  @ApiProperty({ type: [ScheduleSlotDto] })
-  slots: ScheduleSlotDto[];
 }
 
 export class ScheduleComparisonDto {
@@ -142,7 +105,7 @@ export class OptimalScheduleDto {
 
   @ApiProperty({
     description:
-      'The cheapest blocks to draw the energy in, in time order. Within each block the device runs at maxPowerKw, except in at most one slot of the whole schedule, which tops up the rest.',
+      "The cheapest blocks to draw the energy in, in time order. In each block the device runs at maxPowerKw until the block's energyKwh is in. The blocks are made of 15-minute price intervals.",
     type: [ScheduleBlockDto],
   })
   blocks: ScheduleBlockDto[];

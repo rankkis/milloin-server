@@ -218,15 +218,16 @@ describe('API (e2e)', () => {
       .expect(200);
 
     expect(body).toMatchObject({ energyKwh: 30, maxPowerKw: 11, deadlineAt });
-    const slots = body.blocks.flatMap((block) => block.slots);
-    // 30 kWh at 2.75 kWh a slot: 10 full slots and 2.5 kWh
-    expect(slots).toHaveLength(11);
-    slots.forEach((slot) => {
-      expect(slot.price).toBe(2);
-      expect(Date.parse(slot.endTime)).toBeLessThanOrEqual(
+    // 30 kWh at 2.75 kWh a 15 minutes: 2 h 45 min in the 2 c/kWh hours
+    body.blocks.forEach((block) => {
+      expect(block.priceAvg).toBe(2);
+      expect(Date.parse(block.endTime)).toBeLessThanOrEqual(
         Date.parse(deadlineAt),
       );
     });
+    expect(
+      body.blocks.reduce((sum, block) => sum + block.energyKwh, 0),
+    ).toBeCloseTo(30);
     expect(body.costCents).toBeCloseTo(60);
     expect(body.savingsCents).toBeGreaterThanOrEqual(0);
   });
