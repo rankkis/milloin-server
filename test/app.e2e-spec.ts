@@ -204,6 +204,54 @@ describe('API (e2e)', () => {
       .expect(400);
   });
 
+  it('POST /optimal-schedule plans the energy in the cheap hours before the deadline', async () => {
+    const deadlineAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const { body } = await request(app.getHttpServer())
+      .post('/optimal-schedule')
+      .send({
+        energyKwh: 30,
+        maxPowerKw: 11,
+        options: { deadlineAt, minConsecutiveHours: 1 },
+      })
+      .expect(200);
+
+    expect(body).toMatchObject({ energyKwh: 30, maxPowerKw: 11, deadlineAt });
+    const slots = body.blocks.flatMap((block) => block.slots);
+    // 30 kWh at 2.75 kWh a slot: 10 full slots and 2.5 kWh
+    expect(slots).toHaveLength(11);
+    slots.forEach((slot) => {
+      expect(slot.price).toBe(2);
+      expect(Date.parse(slot.endTime)).toBeLessThanOrEqual(
+        Date.parse(deadlineAt),
+      );
+    });
+    expect(body.costCents).toBeCloseTo(60);
+    expect(body.savingsCents).toBeGreaterThanOrEqual(0);
+  });
+
+  it('POST /optimal-schedule rejects invalid parameters', async () => {
+    await request(app.getHttpServer())
+      .post('/optimal-schedule')
+      .send({ energyKwh: 50 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/optimal-schedule')
+      .send({ energyKwh: 50, maxPowerKw: 11, options: { unknown: true } })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/optimal-schedule')
+      .send({
+        energyKwh: 50,
+        maxPowerKw: 11,
+        options: { minConsecutiveHours: 13 },
+      })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/optimal-schedule')
+      .send({ energyKwh: 1000, maxPowerKw: 1 })
+      .expect(400);
+  });
+
   it('allows browser requests from any origin', async () => {
     await request(app.getHttpServer())
       .get('/overview')
@@ -237,6 +285,7 @@ describe('API (e2e)', () => {
         '/optimal-window',
         '/optimal-window/presets',
         '/optimal-window/presets/{preset}',
+        '/optimal-schedule',
       ]),
     );
   });
