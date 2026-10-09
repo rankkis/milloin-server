@@ -71,7 +71,7 @@ export class OptimalWindowsDto {
 
   @ApiProperty({
     description:
-      'The window of each requested start offset, in order of offsetHours. Offsets whose window runs past the published prices are left out. Only when startOffsetsHours was given.',
+      'The window of each requested start offset and, with startEveryFullHour, of each full hour, in order of offsetHours. Offsets whose window runs past the published prices are left out. Only when startOffsetsHours or startEveryFullHour was given.',
     type: [StartOffsetWindowDto],
     required: false,
   })
@@ -108,4 +108,12 @@ export class OptimalWindowPresetDto {
     type: [Number],
   })
   startOffsetsHours?: number[];
+
+  @ApiProperty({
+    description:
+      'Whether every full hour is compared as a start (see startEveryFullHour)',
+    example: true,
+    required: false,
+  })
+  startEveryFullHour?: boolean;
 }

@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   IsNumber,
@@ -94,4 +95,15 @@ export class OptimalWindowRequestDto {
   @Min(0, { each: true })
   @Max(MAX_START_OFFSET_HOURS, { each: true })
   startOffsetsHours?: number[];
+
+  @ApiProperty({
+    description:
+      'When true, startOffsets also lists the window starting at every full hour from the next full hour on, as far as the published prices reach. Like a clock-time start, for example the sauna at 18:00 today or tomorrow. Not limited by earliestStart or latestEnd.',
+    example: true,
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  startEveryFullHour?: boolean;
 }

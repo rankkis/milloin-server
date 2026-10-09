@@ -122,6 +122,41 @@ describe('OptimalWindowService', () => {
     expect(result.startOffsets?.[2].savingsCents).toBe(8);
   });
 
+  it('costs the window starting at every full hour from the next one', async () => {
+    const service = createService(pricesFromNoon([10, 8, 6, 4, 2]));
+
+    const result = await service.findWindows({
+      durationHours: 2,
+      energyKwh: 1,
+      startEveryFullHour: true,
+    });
+
+    // 12:00 has started; 16:00 would run past the published prices
+    expect(
+      result.startOffsets?.map((w) => [
+        w.offsetHours,
+        w.startTime,
+        w.costCents,
+      ]),
+    ).toEqual([
+      [1, '2025-10-01T13:00:00.000Z', 7],
+      [2, '2025-10-01T14:00:00.000Z', 5],
+      [3, '2025-10-01T15:00:00.000Z', 3],
+    ]);
+  });
+
+  it('merges full-hour starts with the requested offsets', async () => {
+    const service = createService(pricesFromNoon([10, 8, 6]));
+
+    const result = await service.findWindows({
+      durationHours: 1,
+      startOffsetsHours: [0, 1],
+      startEveryFullHour: true,
+    });
+
+    expect(result.startOffsets?.map((w) => w.offsetHours)).toEqual([0, 1, 2]);
+  });
+
   it('leaves startOffsets out when none were asked for', async () => {
     const service = createService(pricesFromNoon([5, 5]));
 
