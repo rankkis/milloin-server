@@ -6,6 +6,7 @@ import { ElectricityPriceService } from '../src/shared/electricity-price/electri
 import { ElectricityPriceDto } from '../src/shared/electricity-price/dto/electricity-price.dto';
 import { PriceCacheService } from '../src/shared/electricity-price/services/price-cache.service';
 import { startOfHelsinkiDay } from '../src/shared/utils/helsinki-time.helper';
+import { EnceCacheService } from '../src/ence/ence-cache.service';
 import {
   CONTACT_EMAIL,
   PUBLIC_API_URL,
@@ -69,6 +70,43 @@ describe('API (e2e)', () => {
       // No upstream price fetches or scheduled jobs in tests
       .overrideProvider(PriceCacheService)
       .useValue({})
+      .overrideProvider(EnceCacheService)
+      .useValue({
+        getSnapshot: async () => ({
+          fetchedAt: new Date().toISOString(),
+          source: 'PandaScore',
+          data: {
+            team: { name: 'ENCE', logoUrl: 'https://cdn/ence.png' },
+            matches: [
+              {
+                id: '1',
+                startTime: new Date(Date.now() + 86400000).toISOString(),
+                live: false,
+                opponent: { name: 'Sashi' },
+                event: 'CCT Europe Series 9',
+                format: 'Bo3',
+                streams: ['ru', 'en', 'fi'].map((language) => ({
+                  name: `cct_${language}`,
+                  platform: 'Twitch',
+                  language,
+                  url: `https://www.twitch.tv/cct_${language}`,
+                  official: true,
+                })),
+              },
+            ],
+            results: [],
+          },
+          news: [],
+          logos: { 'https://cdn/ence.png': '0123456789abcdef' },
+        }),
+        getLogo: async (id: string) =>
+          id === '0123456789abcdef'
+            ? {
+                contentType: 'image/png',
+                data: Buffer.from('png').toString('base64'),
+              }
+            : undefined,
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -253,6 +291,34 @@ describe('API (e2e)', () => {
       .post('/optimal-schedule')
       .send({ energyKwh: 1000, maxPowerKw: 1 })
       .expect(400);
+  });
+
+  it('GET /ence returns the next match with Finnish and English streams', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/ence')
+      .expect(200);
+
+    expect(body.team).toEqual({
+      name: 'ENCE',
+      logo: 'ence/logos/0123456789abcdef',
+    });
+    expect(body.nextMatch.opponent.name).toBe('Sashi');
+    expect(body.nextMatch.streams.map((s: any) => s.language)).toEqual([
+      'fi',
+      'en',
+    ]);
+  });
+
+  it('GET /ence/logos/:id serves a copied logo', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/ence/logos/0123456789abcdef')
+      .expect(200);
+
+    expect(response.headers['content-type']).toBe('image/png');
+    expect(response.headers['cache-control']).toBe('public, max-age=604800');
+    await request(app.getHttpServer())
+      .get('/ence/logos/ffffffffffffffff')
+      .expect(404);
   });
 
   it('allows browser requests from any origin', async () => {

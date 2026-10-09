@@ -1,5 +1,8 @@
 {
   "entsoe": {
     "apiKey": "your-entsoe-api-key-here"
+  },
+  "pandascore": {
+    "token": "your-pandascore-token-here"
   }
 }
