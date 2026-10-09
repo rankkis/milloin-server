@@ -33,7 +33,7 @@ export class OptimalWindowRequestDto {
 
   @ApiProperty({
     description:
-      'Electricity used during the window (kWh). When given, each window also carries its cost and saving.',
+      'Electricity used during the whole window (kWh), spread evenly over it. When given, each window also carries its cost and saving.',
     example: 7,
     required: false,
     minimum: 0,

@@ -14,7 +14,8 @@ export const OPTIMAL_WINDOW_PRESETS: OptimalWindowPresetDto[] = [
     name: 'charge-ev',
     description: 'Charging an electric vehicle',
     durationHours: 4,
-    energyKwh: 11,
+    // An 11 kW charger running the whole window: 4 h × 11 kW
+    energyKwh: 44,
   },
   {
     name: 'sauna',
