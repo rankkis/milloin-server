@@ -84,6 +84,22 @@ describe('PandaScore mapping', () => {
     expect(result).toMatchObject({ teamScore: 2, opponentScore: 1 });
   });
 
+  it('skips canceled and forfeited matches', () => {
+    const results = [
+      { team_id: ENCE.id, score: 0 },
+      { team_id: SASHI.id, score: 0 },
+    ];
+    expect(
+      toResult(pandaMatch({ status: 'canceled', results }), ENCE.id),
+    ).toBeUndefined();
+    expect(
+      toResult(
+        pandaMatch({ status: 'finished', forfeit: true, results }),
+        ENCE.id,
+      ),
+    ).toBeUndefined();
+  });
+
   it('lower-cases the language and drops a stream without a URL', () => {
     expect(
       toStream({ language: 'FI', raw_url: 'https://kick.com/kanava' }),
