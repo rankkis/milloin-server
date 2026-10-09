@@ -117,6 +117,24 @@ describe('EnceCacheService', () => {
     expect(primary.fetchTeam).toHaveBeenCalledTimes(1);
   });
 
+  it('fetches again on a new deployment', async () => {
+    process.env.VERCEL_DEPLOYMENT_ID = 'dpl_old';
+    primary.fetchTeam.mockResolvedValueOnce(teamData('Old'));
+    await new EnceCacheService([primary], news, shared).getSnapshot();
+
+    process.env.VERCEL_DEPLOYMENT_ID = 'dpl_new';
+    primary.fetchTeam.mockResolvedValueOnce(teamData('New'));
+    const snapshot = await new EnceCacheService(
+      [primary],
+      news,
+      shared,
+    ).getSnapshot();
+    delete process.env.VERCEL_DEPLOYMENT_ID;
+
+    expect(snapshot.data.matches[0].opponent.name).toBe('New');
+    expect(primary.fetchTeam).toHaveBeenCalledTimes(2);
+  });
+
   it('copies logos once and serves the copies', async () => {
     primary.fetchTeam.mockResolvedValue(teamData());
 

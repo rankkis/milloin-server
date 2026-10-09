@@ -39,6 +39,8 @@ export interface EnceSnapshot {
   news: NewsItem[];
   /** Logo id by source URL, for logos copied successfully */
   logos: Record<string, string>;
+  /** The Vercel deployment that fetched it */
+  deployment?: string;
 }
 
 export interface Logo {
@@ -52,7 +54,8 @@ export interface Logo {
  * prices: a request finds them there, or waits for a fetch when they are
  * missing or over an hour old. Concurrent requests share one fetch. When the
  * sources fail, older data is served. On serverless hosts a fresh instance
- * first reads what other instances left in the shared cache.
+ * first reads what other instances of the same deployment left in the shared
+ * cache; a new deployment fetches on startup, so its fixes show at once.
  *
  * Logos are copied from the source once, so visitors' browsers load them
  * from this API and never from the source.
@@ -64,6 +67,8 @@ export class EnceCacheService implements OnModuleInit {
   private readonly logos = new Map<string, Logo>();
   private lastAttemptAt = 0;
   private refreshing: Promise<EnceSnapshot> | null = null;
+  private readonly deployment =
+    process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_URL;
 
   constructor(
     @Inject(TEAM_DATA_PROVIDERS)
@@ -134,7 +139,11 @@ export class EnceCacheService implements OnModuleInit {
 
   private async load(): Promise<EnceSnapshot> {
     const shared = await this.readShared(SHARED_CACHE_KEY);
-    if (isSnapshot(shared) && this.isFresh(shared, Date.now())) {
+    if (
+      isSnapshot(shared) &&
+      shared.deployment === this.deployment &&
+      this.isFresh(shared, Date.now())
+    ) {
       this.snapshot = shared;
       return shared;
     }
@@ -150,6 +159,7 @@ export class EnceCacheService implements OnModuleInit {
       data,
       news,
       logos: await this.copyLogos(data),
+      deployment: this.deployment,
     };
     this.snapshot = snapshot;
     await this.writeShared(
