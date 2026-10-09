@@ -16,4 +16,13 @@ export const OPTIMAL_WINDOW_PRESETS: OptimalWindowPresetDto[] = [
     durationHours: 4,
     energyKwh: 11,
   },
+  {
+    name: 'sauna',
+    description:
+      'Heating an electric sauna: about an hour to warm up and two hours of bathing',
+    durationHours: 3,
+    energyKwh: 8,
+    // Compare clock-time starts today and tomorrow
+    startEveryFullHour: true,
+  },
 ];

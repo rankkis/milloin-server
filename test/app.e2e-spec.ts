@@ -117,6 +117,7 @@ describe('API (e2e)', () => {
     expect(body.map((preset) => preset.name)).toEqual([
       'wash-laundry',
       'charge-ev',
+      'sauna',
     ]);
   });
 
@@ -150,6 +151,25 @@ describe('API (e2e)', () => {
       expect(window.pricePoints).toHaveLength(8);
       expect(window.costCents).toBeCloseTo(window.priceAvg * 1.5);
     });
+  });
+
+  it('GET /optimal-window/presets/sauna compares 3-hour sessions starting at every full hour', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/optimal-window/presets/sauna')
+      .expect(200);
+
+    expect(body).toMatchObject({ durationHours: 3, energyKwh: 8 });
+    // Prices reach 36 hours ahead, so about 32 full-hour starts fit
+    expect(body.startOffsets.length).toBeGreaterThan(30);
+    body.startOffsets.forEach((window) => {
+      expect(new Date(window.startTime).getUTCMinutes()).toBe(0);
+      expect(window.pricePoints).toHaveLength(12);
+      expect(window.costCents).toBeCloseTo(window.priceAvg * 8);
+    });
+    const lastEnd = Date.parse(
+      body.startOffsets[body.startOffsets.length - 1].endTime,
+    );
+    expect(lastEnd).toBeLessThanOrEqual(Date.parse(body.latestEnd));
   });
 
   it('GET /optimal-window/presets/unknown answers 404', async () => {

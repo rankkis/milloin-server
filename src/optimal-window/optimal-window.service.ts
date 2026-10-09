@@ -16,6 +16,7 @@ import {
 } from './dto/optimal-window.dto';
 
 const QUARTER_MS = 15 * 60 * 1000;
+const HOUR_MS = 4 * QUARTER_MS;
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
@@ -94,18 +95,42 @@ export class OptimalWindowService {
         candidates,
         request.count ?? DEFAULT_WINDOW_COUNT,
       ).map(toWindow),
-      ...(request.startOffsetsHours && {
+      ...((request.startOffsetsHours || request.startEveryFullHour) && {
         startOffsets: this.offsetWindows(
           prices,
           currentQuarter,
           request.durationHours,
-          request.startOffsetsHours,
+          this.startOffsets(request, currentQuarter, lastPriceEnd),
         ).map(({ offsetHours, period }): StartOffsetWindowDto => ({
           offsetHours,
           ...toWindow(period),
         })),
       }),
     };
+  }
+
+  /**
+   * The requested offsets and, with startEveryFullHour, the offset of every
+   * full hour from the next one up to the last start whose window can fit
+   * before the last published price ends.
+   */
+  private startOffsets(
+    request: OptimalWindowRequestDto,
+    currentQuarter: number,
+    lastPriceEnd: number,
+  ): number[] {
+    const offsets = new Set(request.startOffsetsHours ?? []);
+    if (request.startEveryFullHour) {
+      const lastStart = lastPriceEnd - request.durationHours * HOUR_MS;
+      for (
+        let start = Math.ceil((currentQuarter + 1) / HOUR_MS) * HOUR_MS;
+        start <= lastStart;
+        start += HOUR_MS
+      ) {
+        offsets.add((start - currentQuarter) / HOUR_MS);
+      }
+    }
+    return [...offsets];
   }
 
   /**
