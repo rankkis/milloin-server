@@ -36,6 +36,7 @@ export interface PandaStream {
 export interface PandaMatch {
   id: number;
   status: string;
+  forfeit?: boolean;
   begin_at?: string | null;
   scheduled_at?: string | null;
   match_type?: string | null;
@@ -72,6 +73,7 @@ export class PandaScoreProvider implements ITeamDataProvider {
       }),
       this.get<PandaMatch[]>('/matches/past', {
         ...byTeam,
+        'filter[status]': 'finished',
         sort: '-begin_at',
         per_page: '5',
       }),
@@ -187,6 +189,8 @@ export function toResult(
   match: PandaMatch,
   teamId: number,
 ): ResultData | undefined {
+  // Canceled and forfeited matches are in /past too, with 0–0 scores
+  if (match.status !== 'finished' || match.forfeit) return undefined;
   const startTime = startOf(match);
   const score = (id?: number) =>
     match.results?.find((result) => result.team_id === id)?.score;
