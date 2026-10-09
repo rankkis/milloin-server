@@ -126,11 +126,13 @@ describe('API (e2e)', () => {
       .get('/optimal-window/presets/charge-ev')
       .expect(200);
 
-    expect(body).toMatchObject({ durationHours: 4, energyKwh: 11 });
+    expect(body).toMatchObject({ durationHours: 4, energyKwh: 44 });
     expect(body.windows).toHaveLength(3);
     body.windows.forEach((window) => {
       expectOptimalTime(window);
       expect(window.pricePoints).toHaveLength(16);
+      // 11 kWh in each of the 4 hours
+      expect(window.costCents).toBeCloseTo(window.priceAvg * 44, 1);
     });
     const averages = body.windows.map((window) => window.priceAvg);
     expect(averages).toEqual([...averages].sort((a, b) => a - b));

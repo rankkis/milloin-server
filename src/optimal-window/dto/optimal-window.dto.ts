@@ -95,8 +95,9 @@ export class OptimalWindowPresetDto {
   durationHours: number;
 
   @ApiProperty({
-    description: 'Electricity used during the window (kWh)',
-    example: 11,
+    description:
+      'Electricity used during the whole window (kWh), spread evenly over it',
+    example: 44,
   })
   energyKwh: number;
 
