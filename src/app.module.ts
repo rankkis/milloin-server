@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { OverviewModule } from './overview/overview.module';
 import { OptimalWindowModule } from './optimal-window/optimal-window.module';
 import { OptimalScheduleModule } from './optimal-schedule/optimal-schedule.module';
+import { EnceModule } from './ence/ence.module';
 import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
 
 @Module({
@@ -18,6 +19,7 @@ import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
     OverviewModule,
     OptimalWindowModule,
     OptimalScheduleModule,
+    EnceModule,
   ],
   controllers: [],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

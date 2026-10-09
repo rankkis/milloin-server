@@ -14,6 +14,7 @@ the same data that powers [milloin.xyz](https://milloin.xyz).
 
 Prices come from the day-ahead market (ENTSO-E Transparency Platform), in 15-minute
 resolution, in c/kWh including 25.5 % VAT. Times are UTC (ISO 8601, zulu time).
+\`GET /ence\` tells when ENCE, the Finnish CS2 team, plays next (matches from PandaScore, refreshed hourly).
 The OpenAPI document is at [milloin.xyz/api/openapi.json](https://milloin.xyz/api/openapi.json).
 
 **Free to use.** No API key or sign-up is needed. Each IP address may make
@@ -57,6 +58,7 @@ export function createOpenApiDocument(
       'optimal-window',
       'The cheapest times to run a task: presets or your own parameters',
     )
+    .addTag('ence', "When ENCE plays: the Finnish CS2 team's next match")
     .addServer(PUBLIC_API_URL, 'Production');
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),
