@@ -51,11 +51,36 @@ describe('OptimalScheduleService', () => {
       ['2025-10-01T13:00:00.000Z', '2025-10-01T14:00:00.000Z', 9],
       ['2025-10-01T15:00:00.000Z', '2025-10-01T16:00:00.000Z', 11],
     ]);
-    const topUp = result.blocks[0].slots.find((slot) => slot.energyKwh < 2.75);
-    expect(topUp).toMatchObject({ powerKw: 3, energyKwh: 0.75 });
+    expect(result.blocks.map((b) => b.costCents)).toEqual([18, 11]);
     expect(result.costCents).toBe(29);
     expect(result.priceAvg).toBe(1.45);
     expect(result.pricesUntil).toBe('2025-10-01T18:00:00.000Z');
+  });
+
+  it('costs a block as running at full power from its start', async () => {
+    // 13:00–13:30 at 1 c, 13:30–14:00 at 3 c: one 1-hour block is cheapest
+    const prices = pricesFromNoon([9, 1, 9]).map((price, q) =>
+      q === 6 || q === 7 ? { ...price, price: 0.03 } : price,
+    );
+    const service = createService(prices);
+
+    // 1 kWh a slot: 3.5 kWh is three full slots and a half
+    const result = await service.findSchedule({
+      energyKwh: 3.5,
+      maxPowerKw: 4,
+      options: { minConsecutiveHours: 1 },
+    });
+
+    expect(result.blocks).toEqual([
+      {
+        startTime: '2025-10-01T13:00:00.000Z',
+        endTime: '2025-10-01T14:00:00.000Z',
+        energyKwh: 3.5,
+        costCents: 6.5,
+        priceAvg: 1.86,
+      },
+    ]);
+    expect(result.costCents).toBe(6.5);
   });
 
   it('compares with starting right away', async () => {

@@ -6,7 +6,6 @@ import {
   OptimalScheduleDto,
   ScheduleBlockDto,
   ScheduleComparisonDto,
-  ScheduleSlotDto,
 } from './dto/optimal-schedule.dto';
 import {
   SlotEnergy,
@@ -18,7 +17,6 @@ import {
 const QUARTER_MS = 15 * 60 * 1000;
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
-const cents = (price: ElectricityPriceDto): number => round2(price.price * 100);
 const hours = (ms: number): string => `${round2(ms / (4 * QUARTER_MS))} h`;
 
 @Injectable()
@@ -113,40 +111,45 @@ export class OptimalScheduleService {
     };
   }
 
-  /** Slots that draw energy, grouped into runs of consecutive slots */
+  /**
+   * Slots that draw energy, grouped into runs of consecutive slots. The
+   * device runs at maxPowerKw from the start of a block until the block's
+   * energy is in, so a block's top-up comes in its last slot.
+   */
   private toBlocks(
     prices: ElectricityPriceDto[],
     energy: SlotEnergy,
     maxPowerKw: number,
   ): ScheduleBlockDto[] {
-    const blocks: ScheduleSlotDto[][] = [];
-    prices.forEach((price, i) => {
-      if (!energy[i]) return;
-      const slot: ScheduleSlotDto = {
-        startTime: price.startDate,
-        endTime: price.endDate,
-        price: cents(price),
-        powerKw: round2((energy[i] / quarterKwh(maxPowerKw)) * maxPowerKw),
-        energyKwh: round2(energy[i]),
-        costCents: round2(price.price * 100 * energy[i]),
-      };
-      const last = blocks[blocks.length - 1];
-      if (last && last[last.length - 1].endTime === slot.startTime) {
-        last.push(slot);
+    const runs: number[][] = [];
+    energy.forEach((kwh, i) => {
+      if (!kwh) return;
+      const run = runs[runs.length - 1];
+      const previous = run?.[run.length - 1];
+      if (
+        previous === i - 1 &&
+        prices[previous].endDate === prices[i].startDate
+      ) {
+        run.push(i);
       } else {
-        blocks.push([slot]);
+        runs.push([i]);
       }
     });
-    return blocks.map((slots) => {
-      const energyKwh = slots.reduce((sum, slot) => sum + slot.energyKwh, 0);
-      const costCents = slots.reduce((sum, slot) => sum + slot.costCents, 0);
+    return runs.map((run) => {
+      const energyKwh = run.reduce((sum, i) => sum + energy[i], 0);
+      let left = energyKwh;
+      let costCents = 0;
+      for (const i of run) {
+        const kwh = Math.min(left, quarterKwh(maxPowerKw));
+        costCents += prices[i].price * 100 * kwh;
+        left -= kwh;
+      }
       return {
-        startTime: slots[0].startTime,
-        endTime: slots[slots.length - 1].endTime,
+        startTime: prices[run[0]].startDate,
+        endTime: prices[run[run.length - 1]].endDate,
         energyKwh: round2(energyKwh),
         costCents: round2(costCents),
         priceAvg: round2(costCents / energyKwh),
-        slots,
       };
     });
   }
