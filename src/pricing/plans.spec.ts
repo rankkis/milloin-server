@@ -21,6 +21,7 @@ describe('loadProfile', () => {
   it('spreads energy evenly over a duration', () => {
     expect(loadProfile({ durationHours: 1, energyKwh: 2 })).toEqual({
       slotKwh: [0.5, 0.5, 0.5, 0.5],
+      slotMs: QUARTER_MS,
       hasEnergy: true,
     });
   });
@@ -28,8 +29,15 @@ describe('loadProfile', () => {
   it('weighs slots equally without energy', () => {
     expect(loadProfile({ durationHours: 0.5 })).toEqual({
       slotKwh: [1, 1],
+      slotMs: QUARTER_MS,
       hasEnergy: false,
     });
+  });
+
+  it('counts hour slots for hourly prices', () => {
+    expect(
+      loadProfile({ energyKwh: 25, maxPowerKw: 11 }, 4 * QUARTER_MS).slotKwh,
+    ).toEqual([11, 11, 3]);
   });
 
   it('runs at full power until the energy is in', () => {

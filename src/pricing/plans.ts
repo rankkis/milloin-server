@@ -1,4 +1,4 @@
-import { PricePoint, QUARTER_MS, byStartTime } from './price-point';
+import { HOUR_MS, PricePoint, QUARTER_MS, byStartTime } from './price-point';
 import { planCheapestSchedule, slotsNeeded } from './schedule';
 
 /**
@@ -7,6 +7,8 @@ import { planCheapestSchedule, slotsNeeded } from './schedule';
  */
 export interface LoadProfile {
   slotKwh: number[];
+  /** Length of a slot: 15 minutes, or an hour for hourly prices */
+  slotMs: number;
   /** Whether slotKwh is real energy, so costs can be shown */
   hasEnergy: boolean;
 }
@@ -32,24 +34,32 @@ export interface Plan {
  * Even energy over a duration (energyKwh may be left out), or full power
  * until the energy is in with the last slot topping up the rest.
  */
-export function loadProfile(load: {
-  durationHours?: number;
-  energyKwh?: number;
-  maxPowerKw?: number;
-}): LoadProfile {
+export function loadProfile(
+  load: {
+    durationHours?: number;
+    energyKwh?: number;
+    maxPowerKw?: number;
+  },
+  slotMs = QUARTER_MS,
+): LoadProfile {
+  const slotsPerHour = HOUR_MS / slotMs;
   if (load.durationHours !== undefined) {
-    const count = Math.round(load.durationHours * 4);
+    const count = Math.round(load.durationHours * slotsPerHour);
     const perSlot = load.energyKwh !== undefined ? load.energyKwh / count : 1;
     return {
       slotKwh: Array(count).fill(perSlot),
+      slotMs,
       hasEnergy: load.energyKwh !== undefined,
     };
   }
-  const { count, lastKwh } = slotsNeeded(load.energyKwh, load.maxPowerKw);
+  // slotsNeeded counts 15-minute slots; scaling the power counts other slots
+  const slotPowerKw = (load.maxPowerKw * 4) / slotsPerHour;
+  const { count, lastKwh } = slotsNeeded(load.energyKwh, slotPowerKw);
   return {
     slotKwh: Array.from({ length: count }, (_, q) =>
-      q === count - 1 ? lastKwh : load.maxPowerKw / 4,
+      q === count - 1 ? lastKwh : slotPowerKw / 4,
     ),
+    slotMs,
     hasEnergy: true,
   };
 }
@@ -68,7 +78,7 @@ export function runAt(
 ): Plan | undefined {
   let cost = 0;
   for (let q = 0; q < profile.slotKwh.length; q++) {
-    const price = byStart.get(start + q * QUARTER_MS);
+    const price = byStart.get(start + q * profile.slotMs);
     if (!price) return undefined;
     cost += price.price * profile.slotKwh[q];
   }
@@ -76,7 +86,7 @@ export function runAt(
   const block: PlanBlock = {
     startTime: new Date(start).toISOString(),
     endTime: new Date(
-      start + profile.slotKwh.length * QUARTER_MS,
+      start + profile.slotKwh.length * profile.slotMs,
     ).toISOString(),
     energyKwh,
     cost,
@@ -114,7 +124,8 @@ export function continuousPlans(
 
 /**
  * The cheapest way to run the profile's slots in blocks of at least
- * minBlockSlots, pausing in between. All slots but the last draw the same
+ * minBlockSlots, pausing in between. The prices are slots of the profile's
+ * length. All slots but the last draw the same
  * energy; the last tops up the rest. Undefined when it does not fit.
  */
 export function pausablePlan(

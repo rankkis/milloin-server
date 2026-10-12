@@ -17,7 +17,7 @@ export const MAX_PROFILE_SLOTS = 96;
 
 export class PlanSearchDto extends PlansQueryDto {
   @ApiProperty({
-    description: `Energy in kWh for each 15-minute slot of the run, for a load whose power changes, for example a sauna heater drawing more in its first hour. Replaces durationHours, energyKwh and maxPowerKw. At most ${MAX_PROFILE_SLOTS} slots; continuous loads only.`,
+    description: `Energy in kWh for each 15-minute slot of the run (each hour with resolution=hour), for a load whose power changes, for example a sauna heater drawing more in its first hour. Replaces durationHours, energyKwh and maxPowerKw. At most ${MAX_PROFILE_SLOTS} slots; continuous loads only.`,
     required: false,
     example: [1, 1, 1, 1, 0.5, 0.5, 0.5, 0.5],
     type: [Number],
