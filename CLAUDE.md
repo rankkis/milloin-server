@@ -82,6 +82,7 @@ test/
 - Use zulu-time in dto's
 - The API is public and free to use: any origin may call it (CORS), and its docs are at https://milloin.xyz/api, which milloin-web proxies to this server's Swagger UI. CORS, the OpenAPI document (contact, servers) and Swagger UI are set up in `src/app.setup.ts`, shared by `src/main.ts` and `api/index.ts`
 - `GET /ence` (milloin-web's "Milloin Ence pelaa?"): ENCE's next CS2 match, streams, results and news from PandaScore (`PANDASCORE_TOKEN`) and Google News, refreshed hourly; see `src/ence/FEATURE.md`
+- HTTP caching: GET responses get `Cache-Control` from the global `HttpCacheInterceptor` (`src/shared/http/http-cache.ts`): up to the next quarter hour by default, a fixed time with `@HttpCache(seconds)`, `no-store` on errors. Vercel's CDN serves repeat requests without running the function. POSTs are not cached
 - Rate limit: 60 requests per minute per client IP (`src/shared/config/rate-limit.config.ts`, @nestjs/throttler). The count is kept in memory, so each Vercel function instance counts separately. Requests carrying the `SSR_API_KEY` env var's value in the `x-milloin-ssr-key` header (milloin-web's server-side rendering) are not limited
 
 ## Important Reminders

@@ -6,10 +6,8 @@ import {
   NotFoundException,
   Param,
   Post,
-  UseInterceptors,
   ValidationPipe,
 } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
@@ -19,7 +17,7 @@ import {
   ApiServiceUnavailableResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { calculateCacheTtl } from '../shared/utils/cache-ttl.helper';
+import { HttpCache } from '../shared/http/http-cache';
 import {
   DEFAULT_WINDOW_COUNT,
   OptimalWindowRequestDto,
@@ -66,6 +64,7 @@ export class OptimalWindowController {
   }
 
   @Get('presets')
+  @HttpCache(60 * 60)
   @ApiOperation({
     summary: 'List the presets',
     description:
@@ -77,8 +76,6 @@ export class OptimalWindowController {
   }
 
   @Get('presets/:preset')
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(() => calculateCacheTtl())
   @ApiOperation({
     summary: 'Find the cheapest windows for a preset',
     description: `

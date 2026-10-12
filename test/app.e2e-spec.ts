@@ -147,6 +147,30 @@ describe('API (e2e)', () => {
     expect(body.cheapestWindow.priceAvg).toBe(2);
   });
 
+  it('lets the CDN cache GET responses until the next quarter hour', async () => {
+    const { headers } = await request(app.getHttpServer())
+      .get('/overview')
+      .expect(200);
+
+    const sMaxAge = Number(/s-maxage=(\d+)/.exec(headers['cache-control'])[1]);
+    expect(headers['cache-control']).toMatch(/^public, max-age=\d+, /);
+    expect(sMaxAge).toBeGreaterThan(0);
+    expect(sMaxAge).toBeLessThanOrEqual(15 * 60);
+  });
+
+  it('does not let errors or POST responses be cached', async () => {
+    const notFound = await request(app.getHttpServer())
+      .get('/optimal-window/presets/unknown')
+      .expect(404);
+    expect(notFound.headers['cache-control']).toBe('no-store');
+
+    const posted = await request(app.getHttpServer())
+      .post('/optimal-window')
+      .send({ durationHours: 1 })
+      .expect(200);
+    expect(posted.headers['cache-control']).toBeUndefined();
+  });
+
   it('GET /optimal-window/presets lists the presets', async () => {
     const { body } = await request(app.getHttpServer())
       .get('/optimal-window/presets')

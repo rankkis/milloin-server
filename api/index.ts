@@ -34,6 +34,8 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Content-Type', 'application/json');
+    // Changes only with a deployment, which starts with an empty CDN cache
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
 
     // Handle preflight requests
     if (req.method === 'OPTIONS') {

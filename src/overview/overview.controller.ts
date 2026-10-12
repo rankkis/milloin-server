@@ -1,5 +1,4 @@
-import { Controller, Get, UseInterceptors } from '@nestjs/common';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { Controller, Get } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,7 +7,6 @@ import {
 } from '@nestjs/swagger';
 import { OverviewService } from './overview.service';
 import { OverviewDto } from './dto/overview.dto';
-import { calculateCacheTtl } from '../shared/utils/cache-ttl.helper';
 
 @ApiTags('overview')
 @Controller('overview')
@@ -16,8 +14,6 @@ export class OverviewController {
   constructor(private readonly overviewService: OverviewService) {}
 
   @Get()
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(() => calculateCacheTtl())
   @ApiOperation({
     summary: 'Get electricity price overview',
     description: `
@@ -43,8 +39,8 @@ export class OverviewController {
       - VERY_EXPENSIVE: >= 20.0 c/kWh
 
       **Caching:**
-      Data is cached with dynamic TTL that expires at 15-minute intervals (:00, :15, :30, :45),
-      ensuring fresh recommendations when electricity prices change.
+      Responses may be cached until the next 15-minute interval (:00, :15, :30, :45),
+      when the current price changes (Cache-Control).
     `,
   })
   @ApiResponse({
