@@ -64,7 +64,7 @@ export class PricesService {
             Date.parse(price.startTime) < to,
         )
         .map(toPriceDto),
-      meta: this.meta(quarters, resolution, now),
+      meta: this.meta(quarters, resolution),
     };
   }
 
@@ -73,7 +73,7 @@ export class PricesService {
     const quarters = await this.electricityPriceService.getPrices();
     return {
       ...toPriceDto(this.current(quarters, now)),
-      meta: this.meta(quarters, '15min', now),
+      meta: this.meta(quarters, '15min'),
     };
   }
 
@@ -101,22 +101,14 @@ export class PricesService {
     return current;
   }
 
-  private meta(
-    quarters: PricePoint[],
-    resolution: Resolution,
-    now: number,
-  ): PricesMetaDto {
-    const pricesUntil = Date.parse(quarters[quarters.length - 1].endTime);
-    const tomorrowStart = startOfHelsinkiDay(new Date(now), 1).getTime();
+  private meta(quarters: PricePoint[], resolution: Resolution): PricesMetaDto {
     return {
       unit: 'c/kWh',
       vatIncluded: true,
       vatPercent: VAT_PERCENT,
       area: 'FI',
       resolution,
-      pricesUntil: new Date(pricesUntil).toISOString(),
-      // A day's prices are published all at once
-      tomorrowPublished: pricesUntil > tomorrowStart,
+      ...this.electricityPriceService.getFreshness(quarters),
     };
   }
 }

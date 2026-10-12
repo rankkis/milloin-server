@@ -65,6 +65,28 @@ export class PricesMetaDto {
     example: true,
   })
   tomorrowPublished: boolean;
+
+  @ApiProperty({
+    description:
+      "When the next day's prices are expected, at about 14:00 Finnish time (ISO 8601, UTC): today until tomorrow's are in, then tomorrow. In the past while they are late.",
+    example: '2026-10-13T11:00:00.000Z',
+  })
+  nextPricesExpectedAt: string;
+
+  @ApiProperty({
+    description:
+      'Where the prices came from: ENTSO-E, or spot-hinta.fi as the fallback',
+    example: 'ENTSO-E',
+    required: false,
+  })
+  source?: string;
+
+  @ApiProperty({
+    description: 'When the prices were fetched from the source (ISO 8601, UTC)',
+    example: '2026-10-12T11:02:13.000Z',
+    required: false,
+  })
+  fetchedAt?: string;
 }
 
 export class PricesDto {

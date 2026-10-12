@@ -1,4 +1,8 @@
-import { helsinkiParts, startOfHelsinkiDay } from './helsinki-time.helper';
+import {
+  helsinkiParts,
+  helsinkiTime,
+  startOfHelsinkiDay,
+} from './helsinki-time.helper';
 
 describe('helsinki-time helper', () => {
   it('reads the Finnish wall-clock time', () => {
@@ -28,5 +32,13 @@ describe('helsinki-time helper', () => {
     expect(startOfHelsinkiDay(new Date(now), days).toISOString()).toBe(
       expected,
     );
+  });
+
+  it.each([
+    ['2026-10-07T05:00Z', 0, '2026-10-07T11:00:00.000Z'],
+    ['2026-10-24T05:00Z', 1, '2026-10-25T12:00:00.000Z'],
+    ['2026-12-01T05:00Z', 0, '2026-12-01T12:00:00.000Z'],
+  ])('finds 14:00 Finnish time from %s, %p days on', (now, days, expected) => {
+    expect(helsinkiTime(new Date(now), days, 14).toISOString()).toBe(expected);
   });
 });

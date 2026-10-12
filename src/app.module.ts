@@ -14,6 +14,7 @@ import {
 } from './shared/http/problem-details';
 import { PricesModule } from './v1/prices/prices.module';
 import { PlansModule } from './v1/plans/plans.module';
+import { HealthModule } from './v1/health/health.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PlansModule } from './v1/plans/plans.module';
     EnceModule,
     PricesModule,
     PlansModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [

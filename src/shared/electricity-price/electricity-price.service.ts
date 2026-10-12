@@ -6,9 +6,32 @@ import {
 } from '@nestjs/common';
 import { PricePoint } from '../../pricing/price-point';
 import { Clock, systemClock } from '../clock/clock';
-import { startOfHelsinkiDay } from '../utils/helsinki-time.helper';
+import {
+  helsinkiTime,
+  startOfHelsinkiDay,
+} from '../utils/helsinki-time.helper';
 import { ElectricityPriceDto } from './dto/electricity-price.dto';
-import { PriceCacheService } from './services/price-cache.service';
+import {
+  PriceCacheService,
+  TOMORROW_PUBLISHED_HELSINKI_HOUR,
+} from './services/price-cache.service';
+
+/** How current the prices in memory are */
+export interface PriceFreshness {
+  /** End of the last published price, ISO 8601 UTC */
+  pricesUntil: string;
+  /** Whether tomorrow's prices (Finnish day) are in */
+  tomorrowPublished: boolean;
+  /**
+   * When the next day's prices are expected (about 14:00 Finnish time): today
+   * until tomorrow's are in, then tomorrow. In the past while they are late.
+   */
+  nextPricesExpectedAt: string;
+  /** The provider of the latest fetch, for example ENTSO-E */
+  source?: string;
+  /** When the prices were fetched from it */
+  fetchedAt?: string;
+}
 
 /** Providers give €/kWh; everything after this works in c/kWh */
 const toPricePoint = (price: ElectricityPriceDto): PricePoint => ({
@@ -75,5 +98,26 @@ export class ElectricityPriceService {
       const start = Date.parse(price.startTime);
       return start >= dayStart && start < dayEnd;
     });
+  }
+
+  /** How current the prices are; call after getting prices */
+  getFreshness(prices: PricePoint[]): PriceFreshness {
+    const now = new Date(this.clock.now());
+    const pricesUntil = prices.length
+      ? Date.parse(prices[prices.length - 1].endTime)
+      : 0;
+    // A day's prices are published all at once
+    const tomorrowPublished =
+      pricesUntil > startOfHelsinkiDay(now, 1).getTime();
+    return {
+      pricesUntil: new Date(pricesUntil).toISOString(),
+      tomorrowPublished,
+      nextPricesExpectedAt: helsinkiTime(
+        now,
+        tomorrowPublished ? 1 : 0,
+        TOMORROW_PUBLISHED_HELSINKI_HOUR,
+      ).toISOString(),
+      ...this.priceCache.getSource(),
+    };
   }
 }

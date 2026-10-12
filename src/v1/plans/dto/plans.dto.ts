@@ -164,6 +164,19 @@ export class PlansMetaDto {
     example: '2026-10-13T21:00:00.000Z',
   })
   pricesUntil: string;
+
+  @ApiProperty({
+    description: "Whether tomorrow's prices (Finnish day) are published",
+    example: true,
+  })
+  tomorrowPublished: boolean;
+
+  @ApiProperty({
+    description:
+      "When the next day's prices are expected (ISO 8601, UTC), at about 14:00 Finnish time. Ask again after it for a plan that can use them.",
+    example: '2026-10-13T11:00:00.000Z',
+  })
+  nextPricesExpectedAt: string;
 }
 
 export class PlansDto {

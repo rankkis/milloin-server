@@ -50,7 +50,13 @@ describe('API (e2e)', () => {
     })
       // Prices from memory, no upstream fetches or scheduled jobs in tests
       .overrideProvider(PriceCacheService)
-      .useValue({ getPrices: async () => prices })
+      .useValue({
+        getPrices: async () => prices,
+        getSource: () => ({
+          source: 'ENTSO-E',
+          fetchedAt: new Date().toISOString(),
+        }),
+      })
       .overrideProvider(EnceCacheService)
       .useValue({
         getSnapshot: async () => ({
@@ -320,6 +326,9 @@ describe('API (e2e)', () => {
       resolution: '15min',
       pricesUntil: body.prices[body.prices.length - 1].endTime,
       tomorrowPublished: true,
+      nextPricesExpectedAt: expect.any(String),
+      source: 'ENTSO-E',
+      fetchedAt: expect.any(String),
     });
   });
 
@@ -518,6 +527,20 @@ describe('API (e2e)', () => {
     expect(headers.link).toBe(
       '<https://milloin.xyz/api/v1/prices>; rel="successor-version"',
     );
+  });
+
+  it('GET /v1/health tells whether the prices are fresh', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/v1/health')
+      .expect(200);
+
+    expect(body).toMatchObject({
+      status: 'ok',
+      tomorrowPublished: true,
+      source: 'ENTSO-E',
+    });
+    // Tomorrow's are in, so the next are expected tomorrow
+    expect(Date.parse(body.nextPricesExpectedAt)).toBeGreaterThan(Date.now());
   });
 
   it('GET /ence returns the next match with Finnish and English streams', async () => {

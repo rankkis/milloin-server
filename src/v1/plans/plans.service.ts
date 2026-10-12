@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { priceCategory } from '../../pricing/price-category';
 import {
+  PricePoint,
   QUARTER_MS,
   byStartTime,
   quarterStart,
@@ -109,7 +110,7 @@ export class PlansService {
         vatIncluded: true,
         vatPercent: VAT_PERCENT,
         area: 'FI',
-        pricesUntil: new Date(pricesUntil).toISOString(),
+        ...this.freshness(prices),
       },
       activeNow: plans[0]?.activeNow ?? false,
       ...(plans[0]?.nextChangeAt && { nextChangeAt: plans[0].nextChangeAt }),
@@ -128,6 +129,12 @@ export class PlansService {
         }),
       }),
     };
+  }
+
+  private freshness(prices: PricePoint[]) {
+    const { pricesUntil, tomorrowPublished, nextPricesExpectedAt } =
+      this.electricityPriceService.getFreshness(prices);
+    return { pricesUntil, tomorrowPublished, nextPricesExpectedAt };
   }
 
   /** The load's energy per 15-minute slot, checking the inputs fit together */
