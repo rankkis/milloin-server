@@ -26,7 +26,7 @@ import {
  * day-ahead auction). From this Finnish hour onwards they are expected in
  * memory.
  */
-const TOMORROW_PUBLISHED_HELSINKI_HOUR = 14;
+export const TOMORROW_PUBLISHED_HELSINKI_HOUR = 14;
 
 /**
  * A delivery day runs from midnight to midnight CET, which is 22:00 UTC
@@ -41,6 +41,19 @@ const DELIVERY_DAY_END_UTC_HOUR = 22;
 const MIN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 const SHARED_CACHE_KEY = 'electricity-prices';
+
+/** Where the prices in memory came from and when they were fetched */
+export interface PriceSource {
+  /** Provider name, for example ENTSO-E */
+  source: string;
+  /** ISO 8601, UTC */
+  fetchedAt: string;
+}
+
+/** What the shared cache holds; earlier deployments stored the bare list */
+interface SharedEntry extends Partial<PriceSource> {
+  prices: ElectricityPriceDto[];
+}
 
 /**
  * Prices older than today are dropped anyway, so two days covers everything
@@ -62,6 +75,7 @@ const SHARED_CACHE_TTL_SECONDS = 2 * 24 * 60 * 60;
 export class PriceCacheService implements OnModuleInit {
   private readonly logger = new Logger(PriceCacheService.name);
   private prices: ElectricityPriceDto[] = [];
+  private priceSource?: PriceSource;
   private lastAttemptAt = 0;
   private refreshing: Promise<ElectricityPriceDto[]> | null = null;
 
@@ -128,6 +142,11 @@ export class PriceCacheService implements OnModuleInit {
     }
   }
 
+  /** Where the latest fetch came from; undefined before the first one */
+  getSource(): PriceSource | undefined {
+    return this.priceSource;
+  }
+
   /**
    * Loads prices into memory, from the shared cache when it is up to date and
    * from upstream otherwise. Concurrent callers share one load.
@@ -143,37 +162,52 @@ export class PriceCacheService implements OnModuleInit {
 
   private async load(): Promise<ElectricityPriceDto[]> {
     const shared = await this.readSharedCache();
-    if (shared.length > 0) {
-      this.store(shared);
+    if (shared && shared.prices.length > 0) {
+      this.store(shared.prices);
+      if (shared.source && shared.fetchedAt) {
+        this.priceSource = {
+          source: shared.source,
+          fetchedAt: shared.fetchedAt,
+        };
+      }
       if (this.isUpToDate(new Date(this.clock.now()))) {
         return this.prices;
       }
     }
 
-    const prices = this.store(await this.fetchPrices());
-    await this.writeSharedCache(prices);
+    const fetched = await this.fetchPrices();
+    this.priceSource = {
+      source: fetched.source,
+      fetchedAt: new Date(this.lastAttemptAt).toISOString(),
+    };
+    const prices = this.store(fetched.prices);
+    await this.writeSharedCache({ prices, ...this.priceSource });
     return prices;
   }
 
-  private async readSharedCache(): Promise<ElectricityPriceDto[]> {
+  private async readSharedCache(): Promise<SharedEntry | undefined> {
     if (!this.sharedCache) {
-      return [];
+      return undefined;
     }
     try {
       const cached = await this.sharedCache.get(SHARED_CACHE_KEY);
-      return Array.isArray(cached) ? (cached as ElectricityPriceDto[]) : [];
+      if (Array.isArray(cached)) {
+        return { prices: cached as ElectricityPriceDto[] };
+      }
+      const entry = cached as SharedEntry | null;
+      return Array.isArray(entry?.prices) ? entry : undefined;
     } catch (error) {
       this.logger.warn('Reading shared price cache failed', error);
-      return [];
+      return undefined;
     }
   }
 
-  private async writeSharedCache(prices: ElectricityPriceDto[]): Promise<void> {
+  private async writeSharedCache(entry: SharedEntry): Promise<void> {
     if (!this.sharedCache) {
       return;
     }
     try {
-      await this.sharedCache.set(SHARED_CACHE_KEY, prices, {
+      await this.sharedCache.set(SHARED_CACHE_KEY, entry, {
         ttl: SHARED_CACHE_TTL_SECONDS,
       });
     } catch (error) {
@@ -185,7 +219,10 @@ export class PriceCacheService implements OnModuleInit {
    * Tries each provider in priority order and returns the first non-empty
    * result.
    */
-  private async fetchPrices(): Promise<ElectricityPriceDto[]> {
+  private async fetchPrices(): Promise<{
+    prices: ElectricityPriceDto[];
+    source: string;
+  }> {
     this.lastAttemptAt = this.clock.now();
     const now = new Date(this.lastAttemptAt);
     const start = startOfHelsinkiDay(now);
@@ -199,7 +236,7 @@ export class PriceCacheService implements OnModuleInit {
           this.logger.log(
             `Fetched ${prices.length} prices from ${provider.name}`,
           );
-          return prices;
+          return { prices, source: provider.name };
         }
         lastError = new Error(`${provider.name} returned no prices`);
         this.logger.warn(lastError);

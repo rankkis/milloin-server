@@ -59,6 +59,7 @@ export function createOpenApiDocument(
       'plans',
       'When to run a load: continuous or pausable, presets or your own parameters',
     )
+    .addTag('health', 'Whether the prices are fresh')
     .addTag('overview', 'Current price, upcoming prices and averages')
     .addTag(
       'optimal-window',

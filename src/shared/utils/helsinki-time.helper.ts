@@ -46,13 +46,29 @@ export function helsinkiParts(date: Date): HelsinkiParts {
  * startOfHelsinkiDay(new Date('2026-10-07T21:30Z')) // 2026-10-07T21:00:00.000Z
  */
 export function startOfHelsinkiDay(date: Date, daysFromToday = 0): Date {
+  return helsinkiTime(date, daysFromToday, 0);
+}
+
+/**
+ * The instant of a full hour of Finnish wall-clock time, `daysFromToday`
+ * days from the Finnish date of `date`.
+ *
+ * @example
+ * // 14:00 Finnish summer time
+ * helsinkiTime(new Date('2026-10-07T12:00Z'), 0, 14) // 2026-10-07T11:00:00.000Z
+ */
+export function helsinkiTime(
+  date: Date,
+  daysFromToday: number,
+  hour: number,
+): Date {
   const { year, month, day } = helsinkiParts(date);
-  const midnightAsUtc = Date.UTC(year, month - 1, day + daysFromToday);
+  const wallClockAsUtc = Date.UTC(year, month - 1, day + daysFromToday, hour);
 
   // Shift by Finland's UTC offset, checked again at the result in case the
   // offset differs there (daylight saving change).
-  let result = midnightAsUtc - helsinkiOffsetMs(new Date(midnightAsUtc));
-  result = midnightAsUtc - helsinkiOffsetMs(new Date(result));
+  let result = wallClockAsUtc - helsinkiOffsetMs(new Date(wallClockAsUtc));
+  result = wallClockAsUtc - helsinkiOffsetMs(new Date(result));
   return new Date(result);
 }
 

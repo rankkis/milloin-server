@@ -11,4 +11,5 @@ export const priceServiceFor = (
 ): ElectricityPriceService =>
   new ElectricityPriceService({
     getPrices: async () => (typeof prices === 'function' ? prices() : prices),
+    getSource: () => undefined,
   } as unknown as PriceCacheService);

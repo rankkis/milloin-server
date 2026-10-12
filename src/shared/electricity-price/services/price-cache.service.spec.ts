@@ -190,8 +190,33 @@ describe('PriceCacheService', () => {
       const result = await cache.getPrices();
 
       expect(result).toHaveLength(184);
-      expect(shared.set).toHaveBeenCalledWith('electricity-prices', result, {
-        ttl: 2 * 24 * 60 * 60,
+      expect(shared.set).toHaveBeenCalledWith(
+        'electricity-prices',
+        {
+          prices: result,
+          source: 'ENTSO-E',
+          fetchedAt: '2026-10-07T12:00:00.000Z',
+        },
+        { ttl: 2 * 24 * 60 * 60 },
+      );
+      expect(cache.getSource()).toEqual({
+        source: 'ENTSO-E',
+        fetchedAt: '2026-10-07T12:00:00.000Z',
+      });
+    });
+
+    it('reads where shared prices came from', async () => {
+      setNow('2026-10-07T08:00Z');
+      shared.get.mockResolvedValue({
+        prices: todayOnly(),
+        source: 'spot-hinta.fi',
+        fetchedAt: '2026-10-07T07:00:00.000Z',
+      });
+
+      expect(await cache.getPrices()).toHaveLength(88);
+      expect(cache.getSource()).toEqual({
+        source: 'spot-hinta.fi',
+        fetchedAt: '2026-10-07T07:00:00.000Z',
       });
     });
 
