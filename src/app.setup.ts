@@ -55,6 +55,10 @@ export function createOpenApiDocument(
     .setVersion('1.0')
     .setContact('Milloin', 'https://milloin.xyz', CONTACT_EMAIL)
     .addTag('prices', 'Spot prices: the price now and from a time to a time')
+    .addTag(
+      'plans',
+      'When to run a load: continuous or pausable, presets or your own parameters',
+    )
     .addTag('overview', 'Current price, upcoming prices and averages')
     .addTag(
       'optimal-window',

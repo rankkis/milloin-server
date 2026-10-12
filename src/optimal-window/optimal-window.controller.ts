@@ -27,6 +27,7 @@ import {
 } from './dto/optimal-window.dto';
 import { OPTIMAL_WINDOW_PRESETS } from './optimal-window.presets';
 import { OptimalWindowService } from './optimal-window.service';
+import { Deprecated } from '../shared/http/deprecated';
 
 const UNAVAILABLE =
   'Electricity prices are unavailable: both ENTSO-E and the fallback provider (spot-hinta.fi) failed.';
@@ -37,8 +38,10 @@ export class OptimalWindowController {
   constructor(private readonly optimalWindowService: OptimalWindowService) {}
 
   @Post()
+  @Deprecated('/v1/plans')
   @HttpCode(200)
   @ApiOperation({
+    deprecated: true,
     summary: 'Find the cheapest windows for your own task',
     description: `
       Give the length of the task and optionally its energy use and the time range it must fit in.
@@ -56,8 +59,10 @@ export class OptimalWindowController {
   }
 
   @Get('presets')
+  @Deprecated('/v1/plans/presets')
   @HttpCache(60 * 60)
   @ApiOperation({
+    deprecated: true,
     summary: 'List the presets',
     description:
       'The ready-made requests served at /optimal-window/presets/{preset}.',
@@ -68,7 +73,9 @@ export class OptimalWindowController {
   }
 
   @Get('presets/:preset')
+  @Deprecated('/v1/plans/presets')
   @ApiOperation({
+    deprecated: true,
     summary: 'Find the cheapest windows for a preset',
     description: `
       Same as POST /optimal-window with the preset's duration, energy use and start options, searching all

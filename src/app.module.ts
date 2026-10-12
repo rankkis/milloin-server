@@ -13,6 +13,7 @@ import {
   validationException,
 } from './shared/http/problem-details';
 import { PricesModule } from './v1/prices/prices.module';
+import { PlansModule } from './v1/plans/plans.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { PricesModule } from './v1/prices/prices.module';
     OptimalScheduleModule,
     EnceModule,
     PricesModule,
+    PlansModule,
   ],
   controllers: [],
   providers: [

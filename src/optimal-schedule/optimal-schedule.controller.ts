@@ -9,6 +9,7 @@ import {
 import { OptimalScheduleRequestDto } from './dto/optimal-schedule-request.dto';
 import { OptimalScheduleDto } from './dto/optimal-schedule.dto';
 import { OptimalScheduleService } from './optimal-schedule.service';
+import { Deprecated } from '../shared/http/deprecated';
 
 @ApiTags('optimal-schedule')
 @Controller('optimal-schedule')
@@ -18,8 +19,10 @@ export class OptimalScheduleController {
   ) {}
 
   @Post()
+  @Deprecated('/v1/plans')
   @HttpCode(200)
   @ApiOperation({
+    deprecated: true,
     summary: 'Find the cheapest schedule to draw an amount of energy',
     description: `
       Give the energy needed and the highest power, for example 50 kWh with an 11 kW charger, and optionally

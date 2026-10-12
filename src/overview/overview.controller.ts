@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { OverviewService } from './overview.service';
 import { OverviewDto } from './dto/overview.dto';
+import { Deprecated } from '../shared/http/deprecated';
 
 @ApiTags('overview')
 @Controller('overview')
@@ -14,7 +15,9 @@ export class OverviewController {
   constructor(private readonly overviewService: OverviewService) {}
 
   @Get()
+  @Deprecated('/v1/prices')
   @ApiOperation({
+    deprecated: true,
     summary: 'Get electricity price overview',
     description: `
       Returns a comprehensive overview of current and future electricity prices.
