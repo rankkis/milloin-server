@@ -366,6 +366,160 @@ describe('API (e2e)', () => {
     expect(body.meta.unit).toBe('c/kWh');
   });
 
+  it('GET /v1/plans ranks continuous runs with costs and savings', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/v1/plans?durationHours=2&energyKwh=1.5')
+      .expect(200);
+
+    expect(body.request).toMatchObject({
+      pausable: false,
+      durationHours: 2,
+      energyKwh: 1.5,
+      limit: 3,
+    });
+    expect(body.meta).toMatchObject({ priceUnit: 'c/kWh', currency: 'EUR' });
+    expect(body.plans).toHaveLength(3);
+    // The cheap hours cost 2 c/kWh
+    expect(body.plans[0]).toMatchObject({ priceAvg: 2, costCents: 3 });
+    expect(body.plans[0].blocks).toHaveLength(1);
+    expect(body.plans[0].savingsCents).toBeCloseTo(
+      body.startNow.costCents - body.plans[0].costCents,
+    );
+    expect(body.activeNow).toBe(body.plans[0].activeNow);
+  });
+
+  it('GET /v1/plans plans a pausable load before a deadline', async () => {
+    const latestEnd = new Date(Date.now() + 30 * 3600000).toISOString();
+    const { body } = await request(app.getHttpServer())
+      .get(
+        `/v1/plans?pausable=true&energyKwh=22&maxPowerKw=11&minBlockHours=1&latestEnd=${latestEnd}`,
+      )
+      .expect(200);
+
+    expect(body.request).toMatchObject({
+      pausable: true,
+      durationHours: 2,
+      minBlockHours: 1,
+      limit: 1,
+    });
+    expect(body.plans).toHaveLength(1);
+    const [plan] = body.plans;
+    expect(plan.priceAvg).toBe(2);
+    expect(plan.costCents).toBe(44);
+    plan.blocks.forEach((block) => {
+      expect(Date.parse(block.endTime)).toBeLessThanOrEqual(
+        Date.parse(latestEnd),
+      );
+      expect(
+        Date.parse(block.endTime) - Date.parse(block.startTime),
+      ).toBeGreaterThanOrEqual(3600000);
+    });
+    expect(typeof plan.activeNow).toBe('boolean');
+  });
+
+  it('GET /v1/plans gives the same plan all day from a fixed start', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get(
+        '/v1/plans?pausable=true&durationHours=4&earliestStart=today&latestEnd=tomorrow',
+      )
+      .expect(200);
+
+    expect(body.request.earliestStart).toBe(
+      startOfHelsinkiDay(new Date()).toISOString(),
+    );
+    expect(body.request.latestEnd).toBe(
+      startOfHelsinkiDay(new Date(), 1).toISOString(),
+    );
+    expect(body.plans[0].priceAvg).toBe(2);
+  });
+
+  it('GET /v1/plans refuses parameters that do not fit together', async () => {
+    const missing = await request(app.getHttpServer())
+      .get('/v1/plans?energyKwh=10')
+      .expect(400);
+    expect(missing.body.detail).toBe(
+      'Give durationHours, or energyKwh with maxPowerKw',
+    );
+    await request(app.getHttpServer())
+      .get('/v1/plans?durationHours=1.1')
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/v1/plans?durationHours=1&minBlockHours=1')
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/v1/plans?durationHours=1&pausable=maybe')
+      .expect(400);
+  });
+
+  it('GET /v1/plans/presets lists the presets', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/v1/plans/presets')
+      .expect(200);
+
+    expect(body.map((preset) => preset.name)).toEqual([
+      'laundry',
+      'sauna',
+      'ev-charging',
+    ]);
+  });
+
+  it('GET /v1/plans/presets/ev-charging takes overrides', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/v1/plans/presets/ev-charging?energyKwh=11')
+      .expect(200);
+
+    expect(body.request).toMatchObject({
+      preset: 'ev-charging',
+      pausable: true,
+      energyKwh: 11,
+      maxPowerKw: 11,
+      durationHours: 1,
+    });
+
+    const byDuration = await request(app.getHttpServer())
+      .get('/v1/plans/presets/ev-charging?durationHours=3')
+      .expect(200);
+    expect(byDuration.body.request).toMatchObject({
+      durationHours: 3,
+      energyKwh: 44,
+    });
+    await request(app.getHttpServer())
+      .get('/v1/plans/presets/unknown')
+      .expect(404);
+  });
+
+  it('POST /v1/plans/search compares given start times with a power profile', async () => {
+    const now = Math.floor(Date.now() / QUARTER_MS) * QUARTER_MS;
+    const startTimes = [0, 1, 2].map((hours) =>
+      new Date(now + hours * 3600000).toISOString(),
+    );
+    const { body } = await request(app.getHttpServer())
+      .post('/v1/plans/search')
+      .send({ profileKwh: [2, 2, 1, 1], startTimes })
+      .expect(200);
+
+    expect(body.request.durationHours).toBe(1);
+    expect(body.request.energyKwh).toBe(6);
+    expect(body.startTimes.map((run) => run.requestedStart)).toEqual(
+      startTimes,
+    );
+    body.startTimes.forEach((run) => {
+      expect(run.costCents).toBeCloseTo(run.priceAvg * 6, 1);
+    });
+  });
+
+  it('marks the routes before /v1 deprecated', async () => {
+    const { headers } = await request(app.getHttpServer())
+      .get('/overview')
+      .expect(200);
+
+    expect(headers.deprecation).toMatch(/^@\d+$/);
+    expect(headers.sunset).toBe('Thu, 31 Dec 2026 00:00:00 GMT');
+    expect(headers.link).toBe(
+      '<https://milloin.xyz/api/v1/prices>; rel="successor-version"',
+    );
+  });
+
   it('GET /ence returns the next match with Finnish and English streams', async () => {
     const { body } = await request(app.getHttpServer())
       .get('/ence')
