@@ -298,6 +298,74 @@ describe('API (e2e)', () => {
       .expect(400);
   });
 
+  it('GET /v1/prices returns today and tomorrow with the price now', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/v1/prices')
+      .expect(200);
+
+    const midnight = startOfHelsinkiDay(new Date()).toISOString();
+    expect(body.current).toMatchObject({ price: 8, category: 'NORMAL' });
+    expect(body.prices[0].startTime).toBe(midnight);
+    expect(body.prices[0]).toEqual({
+      startTime: midnight,
+      endTime: new Date(Date.parse(midnight) + QUARTER_MS).toISOString(),
+      price: expect.any(Number),
+      category: expect.any(String),
+    });
+    expect(body.meta).toEqual({
+      unit: 'c/kWh',
+      vatIncluded: true,
+      vatPercent: 25.5,
+      area: 'FI',
+      resolution: '15min',
+      pricesUntil: body.prices[body.prices.length - 1].endTime,
+      tomorrowPublished: true,
+    });
+  });
+
+  it('GET /v1/prices averages clock hours and takes times with an offset', async () => {
+    const from = new Date(Math.floor(Date.now() / 3600000) * 3600000);
+    // 3 hours from the start of this hour, as Finnish summer time with a
+    // plain + that a URL turns into a space
+    const to = new Date(from.getTime() + 3 * 3600000 + 3 * 3600000)
+      .toISOString()
+      .replace('.000Z', '+03:00');
+    const { body } = await request(app.getHttpServer())
+      .get(`/v1/prices?resolution=hour&from=${from.toISOString()}&to=${to}`)
+      .expect(200);
+
+    expect(body.meta.resolution).toBe('hour');
+    expect(body.prices).toHaveLength(3);
+    expect(body.prices[0].startTime).toBe(from.toISOString());
+    expect(body.current.startTime).toBe(from.toISOString());
+  });
+
+  it('GET /v1/prices answers invalid parameters with problem details', async () => {
+    const { body, headers } = await request(app.getHttpServer())
+      .get('/v1/prices?resolution=day&extra=1')
+      .expect(400);
+
+    expect(headers['content-type']).toMatch(/^application\/problem\+json/);
+    expect(body).toMatchObject({
+      type: 'about:blank',
+      title: 'Bad Request',
+      status: 400,
+    });
+    expect(body.errors.map((error) => error.field).sort()).toEqual([
+      'extra',
+      'resolution',
+    ]);
+  });
+
+  it('GET /v1/prices/current returns the price now', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/v1/prices/current')
+      .expect(200);
+
+    expect(body).toMatchObject({ price: 8, category: 'NORMAL' });
+    expect(body.meta.unit).toBe('c/kWh');
+  });
+
   it('GET /ence returns the next match with Finnish and English streams', async () => {
     const { body } = await request(app.getHttpServer())
       .get('/ence')
