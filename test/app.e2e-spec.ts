@@ -637,13 +637,22 @@ describe('API (e2e)', () => {
     expect(body.servers[0].url).toBe(PUBLIC_API_URL);
     expect(Object.keys(body.paths)).toEqual(
       expect.arrayContaining([
+        '/v1/prices',
+        '/v1/prices/current',
+        '/v1/plans',
+        '/v1/plans/search',
+        '/v1/plans/presets',
+        '/v1/plans/presets/{name}',
+        '/v1/health',
         '/overview',
-        '/optimal-window',
-        '/optimal-window/presets',
-        '/optimal-window/presets/{preset}',
-        '/optimal-schedule',
       ]),
     );
+    expect(body.paths['/v1/prices'].get.operationId).toBe('getPrices');
+    expect(body.paths['/overview'].get.deprecated).toBe(true);
+    // milloin-web's own endpoint stays out of the public document
+    expect(
+      Object.keys(body.paths).some((path) => path.startsWith('/ence')),
+    ).toBe(false);
   });
 
   it('GET /api serves Swagger UI', async () => {
