@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PriceCategory } from './price-category.enum';
+import { PriceCategory } from '../../pricing/price-category';
 
 export class PricePointDto {
   @ApiProperty({

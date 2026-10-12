@@ -15,6 +15,7 @@ import {
   ISharedPriceCache,
   SHARED_PRICE_CACHE,
 } from '../interfaces/shared-price-cache.interface';
+import { Clock, systemClock } from '../../clock/clock';
 import {
   helsinkiParts,
   startOfHelsinkiDay,
@@ -70,6 +71,7 @@ export class PriceCacheService implements OnModuleInit {
     @Optional()
     @Inject(SHARED_PRICE_CACHE)
     private readonly sharedCache?: ISharedPriceCache,
+    @Optional() private readonly clock: Clock = systemClock,
   ) {}
 
   onModuleInit(): void {
@@ -103,7 +105,7 @@ export class PriceCacheService implements OnModuleInit {
    * memory is empty or outdated.
    */
   async getPrices(): Promise<ElectricityPriceDto[]> {
-    const now = new Date();
+    const now = new Date(this.clock.now());
     if (this.isUpToDate(now)) {
       return this.prices;
     }
@@ -143,7 +145,7 @@ export class PriceCacheService implements OnModuleInit {
     const shared = await this.readSharedCache();
     if (shared.length > 0) {
       this.store(shared);
-      if (this.isUpToDate(new Date())) {
+      if (this.isUpToDate(new Date(this.clock.now()))) {
         return this.prices;
       }
     }
@@ -184,8 +186,8 @@ export class PriceCacheService implements OnModuleInit {
    * result.
    */
   private async fetchPrices(): Promise<ElectricityPriceDto[]> {
-    this.lastAttemptAt = Date.now();
-    const now = new Date();
+    this.lastAttemptAt = this.clock.now();
+    const now = new Date(this.lastAttemptAt);
     const start = startOfHelsinkiDay(now);
     const end = startOfHelsinkiDay(now, 2);
 
@@ -214,7 +216,7 @@ export class PriceCacheService implements OnModuleInit {
    * previous Finnish days.
    */
   private store(fetched: ElectricityPriceDto[]): ElectricityPriceDto[] {
-    const keepFrom = startOfHelsinkiDay(new Date()).getTime();
+    const keepFrom = startOfHelsinkiDay(new Date(this.clock.now())).getTime();
     const byStart = new Map<string, ElectricityPriceDto>();
     for (const price of [...this.prices, ...fetched]) {
       if (Date.parse(price.endDate) > keepFrom) {

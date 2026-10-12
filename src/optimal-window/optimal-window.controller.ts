@@ -6,7 +6,6 @@ import {
   NotFoundException,
   Param,
   Post,
-  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -51,14 +50,7 @@ export class OptimalWindowController {
   @ApiBadRequestResponse({ description: 'The request body is not valid' })
   @ApiServiceUnavailableResponse({ description: UNAVAILABLE })
   findWindows(
-    @Body(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    )
-    request: OptimalWindowRequestDto,
+    @Body() request: OptimalWindowRequestDto,
   ): Promise<OptimalWindowsDto> {
     return this.optimalWindowService.findWindows(request);
   }

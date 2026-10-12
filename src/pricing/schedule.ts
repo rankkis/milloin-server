@@ -1,4 +1,4 @@
-import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
+import { PricePoint } from './price-point';
 
 /** Energy drawn in each price slot, in kWh, by index */
 export type SlotEnergy = number[];
@@ -22,7 +22,7 @@ export function slotsNeeded(
 }
 
 /**
- * The cheapest way to draw energyKwh from the given 15-minute prices at
+ * The cheapest way to draw energyKwh from the given 15-minute prices (c/kWh) at
  * most maxPowerKw, using blocks of at least minBlockSlots consecutive slots.
  * One slot may draw less than full power to top up the rest. Returns null
  * when the energy does not fit.
@@ -33,7 +33,7 @@ export function slotsNeeded(
  * may end only once it is long enough, and a gap in the prices ends it.
  */
 export function planCheapestSchedule(
-  prices: ElectricityPriceDto[],
+  prices: PricePoint[],
   energyKwh: number,
   maxPowerKw: number,
   minBlockSlots = 1,
@@ -58,10 +58,10 @@ export function planCheapestSchedule(
 
   for (let i = 0; i < prices.length; i++) {
     next.fill(Infinity);
-    const cents = prices[i].price * 100;
+    const cents = prices[i].price;
     const gap =
       i > 0 &&
-      Date.parse(prices[i - 1].endDate) !== Date.parse(prices[i].startDate);
+      Date.parse(prices[i - 1].endTime) !== Date.parse(prices[i].startTime);
     const base = i * stateCount;
 
     for (let used = 0; used <= count; used++) {

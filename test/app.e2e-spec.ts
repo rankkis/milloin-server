@@ -2,7 +2,6 @@ import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { ElectricityPriceService } from '../src/shared/electricity-price/electricity-price.service';
 import { ElectricityPriceDto } from '../src/shared/electricity-price/dto/electricity-price.dto';
 import { PriceCacheService } from '../src/shared/electricity-price/services/price-cache.service';
 import { startOfHelsinkiDay } from '../src/shared/utils/helsinki-time.helper';
@@ -45,31 +44,13 @@ describe('API (e2e)', () => {
   beforeAll(async () => {
     process.env.SSR_API_KEY = 'test-ssr-key';
     const prices = createPrices();
-    const now = () => Date.now();
-    const future = () => prices.filter((p) => Date.parse(p.endDate) > now());
-    // Prices of one Finnish day, as the price cache slices them
-    const finnishDay = (daysFromToday: number) => {
-      const start = startOfHelsinkiDay(new Date(), daysFromToday).getTime();
-      const end = startOfHelsinkiDay(new Date(), daysFromToday + 1).getTime();
-      return prices.filter((p) => {
-        const priceStart = Date.parse(p.startDate);
-        return priceStart >= start && priceStart < end;
-      });
-    };
 
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     })
-      .overrideProvider(ElectricityPriceService)
-      .useValue({
-        getCurrentPrices: async () => future().slice(0, 1),
-        getTodayPrices: async () => finnishDay(0),
-        getTomorrowPrices: async () => finnishDay(1),
-        getFuturePrices: async () => future(),
-      })
-      // No upstream price fetches or scheduled jobs in tests
+      // Prices from memory, no upstream fetches or scheduled jobs in tests
       .overrideProvider(PriceCacheService)
-      .useValue({})
+      .useValue({ getPrices: async () => prices })
       .overrideProvider(EnceCacheService)
       .useValue({
         getSnapshot: async () => ({

@@ -15,12 +15,14 @@ SpotHintaProvider ─┘   (tries providers in priority order)
 ## Components
 
 ### `ElectricityPriceService`
-Serves prices from memory. Days are Finnish days, midnight to midnight Europe/Helsinki time.
+Serves prices from memory as `PricePoint`s (`src/pricing/price-point.ts`): c/kWh including VAT, not rounded, converted from the providers' €/kWh once per price list. Days are Finnish days, midnight to midnight Europe/Helsinki time. The time comes from the injected `Clock`.
 
-- `getCurrentPrices()`: the current 15-minute price
-- `getTodayPrices()`: today's prices
-- `getTomorrowPrices()`: tomorrow's prices, empty until published
-- `getFuturePrices()`: prices starting from now onwards
+- `getPrices()`: every price in memory, from Finnish midnight today
+- `getUpcomingPrices()`: prices that have not ended, from the current quarter
+- `getCurrentPrice()`: the current 15-minute price, 503 when missing
+- `getDayPrices(days)`: one Finnish day's prices, 0 today and 1 tomorrow (empty until published)
+
+The calculations on these prices are plain functions in `src/pricing/` (windows, hourly averages, the schedule planner, price categories), with no Nest or API DTOs. Services round only their output.
 
 ### `PriceCacheService`
 Holds every price from midnight of the current Finnish day up to the last published price.

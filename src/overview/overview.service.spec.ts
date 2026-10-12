@@ -1,8 +1,7 @@
-import { Test } from '@nestjs/testing';
 import { OverviewService } from './overview.service';
-import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
+import { priceServiceFor } from '../shared/electricity-price/testing';
 import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
-import { PriceCategory } from '../shared/dto/price-category.enum';
+import { PriceCategory } from '../pricing/price-category';
 
 const QUARTER_MS = 15 * 60 * 1000;
 
@@ -26,17 +25,8 @@ const quarters = (
 
 describe('OverviewService', () => {
   let service: OverviewService;
-  let prices: jest.Mocked<
-    Pick<
-      ElectricityPriceService,
-      | 'getCurrentPrices'
-      | 'getFuturePrices'
-      | 'getTodayPrices'
-      | 'getTomorrowPrices'
-    >
-  >;
 
-  /** Mocks the price service as the cache would answer at `now` */
+  /** A service over the prices the cache would hold at `now` */
   const givenPrices = (
     now: string,
     today: ElectricityPriceDto[],
@@ -44,38 +34,8 @@ describe('OverviewService', () => {
   ) => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     jest.setSystemTime(new Date(now));
-    const all = [...today, ...tomorrow];
-    const nowMs = Date.parse(now);
-    prices.getTodayPrices.mockResolvedValue(today);
-    prices.getTomorrowPrices.mockResolvedValue(tomorrow);
-    prices.getFuturePrices.mockResolvedValue(
-      all.filter((p) => Date.parse(p.startDate) >= nowMs),
-    );
-    prices.getCurrentPrices.mockResolvedValue(
-      all.filter(
-        (p) =>
-          Date.parse(p.startDate) <= nowMs && Date.parse(p.endDate) > nowMs,
-      ),
-    );
+    service = new OverviewService(priceServiceFor([...today, ...tomorrow]));
   };
-
-  beforeEach(async () => {
-    prices = {
-      getCurrentPrices: jest.fn(),
-      getFuturePrices: jest.fn(),
-      getTodayPrices: jest.fn(),
-      getTomorrowPrices: jest.fn(),
-    };
-
-    const moduleRef = await Test.createTestingModule({
-      providers: [
-        OverviewService,
-        { provide: ElectricityPriceService, useValue: prices },
-      ],
-    }).compile();
-
-    service = moduleRef.get(OverviewService);
-  });
 
   afterEach(() => {
     jest.useRealTimers();
@@ -231,6 +191,23 @@ describe('OverviewService', () => {
 
       expect(result.cheapestWindow).toBeUndefined();
       expect('cheapestWindow' in result).toBe(false);
+    });
+  });
+
+  describe('summaries', () => {
+    it('average the current quarter when it is the last price', async () => {
+      // 23:50 Finnish time, tomorrow's prices not published
+      givenPrices(
+        '2026-07-15T20:50:00.000Z',
+        quarters('2026-07-14T21:00:00.000Z', 96, () => 0.07),
+      );
+
+      const { current, next12Hours, future } = await service.getOverview();
+
+      expect(current.price).toBe(7);
+      expect(next12Hours.priceAvg).toBe(7);
+      expect(future.priceAvg).toBe(7);
+      expect(future.pricePoints).toHaveLength(1);
     });
   });
 });

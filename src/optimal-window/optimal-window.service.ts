@@ -1,10 +1,19 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
-import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import {
-  OptimalPeriodResult,
-  findOptimalPeriod,
-} from '../shared/electricity-price/utils/find-optimal-period.helper';
+  HOUR_MS,
+  byStartTime,
+  quarterStart,
+  round2,
+} from '../pricing/price-point';
+import {
+  PriceWindow,
+  cheapestWindows,
+  pickNonOverlapping,
+  windowAt,
+} from '../pricing/windows';
+import { Clock, systemClock } from '../shared/clock/clock';
+import { toOptimalTimeDto } from '../shared/dto/optimal-time.mapper';
+import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
 import {
   DEFAULT_WINDOW_COUNT,
   OptimalWindowRequestDto,
@@ -15,15 +24,11 @@ import {
   WindowDto,
 } from './dto/optimal-window.dto';
 
-const QUARTER_MS = 15 * 60 * 1000;
-const HOUR_MS = 4 * QUARTER_MS;
-
-const round2 = (value: number): number => Math.round(value * 100) / 100;
-
 @Injectable()
 export class OptimalWindowService {
   constructor(
     private readonly electricityPriceService: ElectricityPriceService,
+    @Optional() private readonly clock: Clock = systemClock,
   ) {}
 
   /**
@@ -47,10 +52,10 @@ export class OptimalWindowService {
       );
     }
 
-    const prices = await this.getUpcomingPrices();
-    const currentQuarter = Math.floor(Date.now() / QUARTER_MS) * QUARTER_MS;
+    const prices = await this.electricityPriceService.getUpcomingPrices();
+    const currentQuarter = quarterStart(this.clock.now());
     const lastPriceEnd = prices.length
-      ? Date.parse(prices[prices.length - 1].endDate)
+      ? Date.parse(prices[prices.length - 1].endTime)
       : currentQuarter;
 
     const earliestStart = Math.max(
@@ -66,22 +71,13 @@ export class OptimalWindowService {
 
     const searched = prices.filter(
       (price) =>
-        Date.parse(price.startDate) >= earliestStart &&
-        Date.parse(price.endDate) <= latestEnd,
+        Date.parse(price.startTime) >= earliestStart &&
+        Date.parse(price.endTime) <= latestEnd,
     );
-    const candidates = findOptimalPeriod(
-      searched,
-      request.durationHours,
-      Infinity,
-    );
-
-    const nowPrices = prices.slice(0, quarters);
-    const startNow =
-      nowPrices.length === quarters
-        ? findOptimalPeriod(nowPrices, request.durationHours, 1)[0]
-        : undefined;
-    const toWindow = (period: OptimalPeriodResult): WindowDto =>
-      this.toWindow(period, request.energyKwh, startNow);
+    const byStart = byStartTime(prices);
+    const startNow = windowAt(byStart, currentQuarter, quarters);
+    const toWindow = (window: PriceWindow): WindowDto =>
+      this.toWindow(window, request.energyKwh, startNow);
 
     return {
       durationHours: request.durationHours,
@@ -91,20 +87,21 @@ export class OptimalWindowService {
       earliestStart: new Date(earliestStart).toISOString(),
       latestEnd: new Date(latestEnd).toISOString(),
       ...(startNow && { startNow: toWindow(startNow) }),
-      windows: this.pickNonOverlapping(
-        candidates,
+      windows: pickNonOverlapping(
+        cheapestWindows(searched, quarters),
         request.count ?? DEFAULT_WINDOW_COUNT,
       ).map(toWindow),
       ...((request.startOffsetsHours || request.startEveryFullHour) && {
-        startOffsets: this.offsetWindows(
-          prices,
-          currentQuarter,
-          request.durationHours,
-          this.startOffsets(request, currentQuarter, lastPriceEnd),
-        ).map(({ offsetHours, period }): StartOffsetWindowDto => ({
-          offsetHours,
-          ...toWindow(period),
-        })),
+        startOffsets: this.startOffsets(request, currentQuarter, lastPriceEnd)
+          .sort((a, b) => a - b)
+          .flatMap((offsetHours): StartOffsetWindowDto[] => {
+            const window = windowAt(
+              byStart,
+              currentQuarter + offsetHours * HOUR_MS,
+              quarters,
+            );
+            return window ? [{ offsetHours, ...toWindow(window) }] : [];
+          }),
       }),
     };
   }
@@ -133,79 +130,20 @@ export class OptimalWindowService {
     return [...offsets];
   }
 
-  /**
-   * The window starting at each offset from the current quarter. Prices are
-   * looked up by start time, so a missing quarter only drops the offsets
-   * whose window overlaps it.
-   */
-  private offsetWindows(
-    prices: ElectricityPriceDto[],
-    currentQuarter: number,
-    durationHours: number,
-    offsetsHours: number[],
-  ): { offsetHours: number; period: OptimalPeriodResult }[] {
-    const byStart = new Map(
-      prices.map((price) => [Date.parse(price.startDate), price]),
-    );
-    return [...offsetsHours]
-      .sort((a, b) => a - b)
-      .flatMap((offsetHours) => {
-        const start = currentQuarter + offsetHours * 4 * QUARTER_MS;
-        const slot = Array.from({ length: durationHours * 4 }, (_, q) =>
-          byStart.get(start + q * QUARTER_MS),
-        );
-        if (slot.some((price) => !price)) return [];
-        const [period] = findOptimalPeriod(slot, durationHours, 1);
-        return period ? [{ offsetHours, period }] : [];
-      });
-  }
-
-  /** Prices from the current 15-minute interval to the last published one */
-  private async getUpcomingPrices(): Promise<ElectricityPriceDto[]> {
-    const today = await this.electricityPriceService.getTodayPrices();
-    const tomorrow = await this.electricityPriceService
-      .getTomorrowPrices()
-      .catch((): ElectricityPriceDto[] => []);
-    const now = Date.now();
-    return [...today, ...tomorrow].filter(
-      (price) => Date.parse(price.endDate) > now,
-    );
-  }
-
-  /**
-   * Candidates come cheapest first (earlier first on a tie), so taking
-   * each one that does not overlap an already taken window gives the
-   * cheapest set.
-   */
-  private pickNonOverlapping(
-    candidates: OptimalPeriodResult[],
-    count: number,
-  ): OptimalPeriodResult[] {
-    const picked: OptimalPeriodResult[] = [];
-    for (const candidate of candidates) {
-      if (picked.length === count) break;
-      const overlaps = picked.some(
-        (window) =>
-          candidate.startTime < window.endTime &&
-          window.startTime < candidate.endTime,
-      );
-      if (!overlaps) picked.push(candidate);
-    }
-    return picked;
-  }
-
+  /** Costs use the unrounded average; only the output is rounded */
   private toWindow(
-    period: OptimalPeriodResult,
+    window: PriceWindow,
     energyKwh: number | undefined,
-    startNow: OptimalPeriodResult | undefined,
+    startNow: PriceWindow | undefined,
   ): WindowDto {
-    if (energyKwh === undefined) return { ...period };
-    const costCents = round2(period.priceAvg * energyKwh);
+    const dto = toOptimalTimeDto(window);
+    if (energyKwh === undefined) return dto;
+    const cost = window.priceAvg * energyKwh;
     return {
-      ...period,
-      costCents,
+      ...dto,
+      costCents: round2(cost),
       ...(startNow && {
-        savingsCents: round2(startNow.priceAvg * energyKwh - costCents),
+        savingsCents: round2(startNow.priceAvg * energyKwh - cost),
       }),
     };
   }
