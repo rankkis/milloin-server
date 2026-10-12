@@ -22,7 +22,7 @@ Serves prices from memory as `PricePoint`s (`src/pricing/price-point.ts`): c/kWh
 - `getCurrentPrice()`: the current 15-minute price, 503 when missing
 - `getDayPrices(days)`: one Finnish day's prices, 0 today and 1 tomorrow (empty until published)
 
-The calculations on these prices are plain functions in `src/pricing/` (windows, hourly averages, the schedule planner, price categories), with no Nest or API DTOs. Services round only their output.
+The calculations on these prices are plain functions in `src/pricing/` (plans, hourly averages, the schedule planner, price and day categories), with no Nest or API DTOs. Services round only their output.
 
 ### `PriceCacheService`
 Holds every price from midnight of the current Finnish day up to the last published price.

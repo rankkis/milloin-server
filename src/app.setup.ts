@@ -20,7 +20,6 @@ powers [milloin.xyz](https://milloin.xyz).
 Prices come from the day-ahead market (ENTSO-E Transparency Platform, spot-hinta.fi as fallback) in
 15-minute resolution, in c/kWh including 25.5 % VAT. Money is in cents, energy in kWh, power in kW. Times
 are UTC (ISO 8601); requests may also give a UTC offset. Errors are \`application/problem+json\`.
-The routes outside \`/v1\` are deprecated and stop answering on 31 December 2026.
 The OpenAPI document is at [milloin.xyz/api/openapi.json](https://milloin.xyz/api/openapi.json).
 Guides, Home Assistant examples included, are at [milloin.xyz/docs](https://milloin.xyz/docs).
 
@@ -68,11 +67,6 @@ export function createOpenApiDocument(
       'When to run a load: continuous or pausable, presets or your own parameters',
     )
     .addTag('health', 'Whether the prices are fresh')
-    .addTag('overview', 'Current price, upcoming prices and averages')
-    .addTag(
-      'optimal-window',
-      'The cheapest times to run a task: presets or your own parameters',
-    )
     .addServer(PUBLIC_API_URL, 'Production');
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),

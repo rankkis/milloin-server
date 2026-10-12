@@ -1,9 +1,6 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { OverviewModule } from './overview/overview.module';
-import { OptimalWindowModule } from './optimal-window/optimal-window.module';
-import { OptimalScheduleModule } from './optimal-schedule/optimal-schedule.module';
 import { EnceModule } from './ence/ence.module';
 import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
 import { HttpCacheInterceptor } from './shared/http/http-cache';
@@ -20,9 +17,6 @@ import { HealthModule } from './v1/health/health.module';
   imports: [
     ClockModule,
     ThrottlerModule.forRoot(RATE_LIMIT_OPTIONS),
-    OverviewModule,
-    OptimalWindowModule,
-    OptimalScheduleModule,
     EnceModule,
     PricesModule,
     PlansModule,
