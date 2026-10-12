@@ -1,11 +1,11 @@
 import { Controller, Get, NotFoundException, Param, Res } from '@nestjs/common';
 import {
+  ApiExcludeController,
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
   ApiResponse,
   ApiServiceUnavailableResponse,
-  ApiTags,
 } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Response } from 'express';
@@ -17,7 +17,8 @@ import { HttpCache } from '../shared/http/http-cache';
 /** ENCE data is refreshed hourly; the CDN keeps it 10 minutes */
 const ENCE_CACHE_SECONDS = 10 * 60;
 
-@ApiTags('ence')
+// milloin-web's own endpoint, left out of the public API document
+@ApiExcludeController()
 @Controller('ence')
 export class EnceController {
   constructor(

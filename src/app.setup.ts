@@ -9,19 +9,26 @@ export const PUBLIC_API_URL = 'https://milloin.xyz/api';
 const SWAGGER_UI_CDN = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14';
 
 const API_DESCRIPTION = `
-Finnish electricity spot prices and the cheapest times to run high-consumption tasks,
-the same data that powers [milloin.xyz](https://milloin.xyz).
+Finnish electricity spot prices and the cheapest times to run a load, the same data that
+powers [milloin.xyz](https://milloin.xyz).
 
-Prices come from the day-ahead market (ENTSO-E Transparency Platform), in 15-minute
-resolution, in c/kWh including 25.5 % VAT. Times are UTC (ISO 8601, zulu time).
-\`GET /ence\` tells when ENCE, the Finnish CS2 team, plays next (matches from PandaScore, refreshed hourly).
+- \`GET /v1/prices\`: prices from a time to a time, with the price now. \`/v1/prices/current\` for just the price now.
+- \`GET /v1/plans\`: when to run a load, continuous (a washing machine) or pausable (an EV charger), with
+  \`activeNow\` for switching a device. Ready-made loads at \`/v1/plans/presets\`.
+- \`GET /v1/health\`: whether the prices are fresh and when tomorrow's arrive.
+
+Prices come from the day-ahead market (ENTSO-E Transparency Platform, spot-hinta.fi as fallback) in
+15-minute resolution, in c/kWh including 25.5 % VAT. Money is in cents, energy in kWh, power in kW. Times
+are UTC (ISO 8601); requests may also give a UTC offset. Errors are \`application/problem+json\`.
+The routes outside \`/v1\` are deprecated and stop answering on 31 December 2026.
 The OpenAPI document is at [milloin.xyz/api/openapi.json](https://milloin.xyz/api/openapi.json).
 
-**Free to use.** No API key or sign-up is needed. Each IP address may make
-${RATE_LIMIT.LIMIT} requests per minute; over that the API answers 429 Too Many Requests
-until the minute is up. GET responses carry \`Cache-Control\` up to the next quarter hour, when the
-current price changes, and repeated requests are answered from the CDN without counting. Please cache
-responses on your side too: day-ahead prices are published once a day, around 14:00 Finnish time. A link back to [milloin.xyz](https://milloin.xyz) is appreciated.
+**Free to use.** No API key or sign-up is needed. GET responses carry \`Cache-Control\` up to the next
+quarter hour, when the current price changes, and repeated requests are answered from the CDN. Requests
+that reach the server count against a limit of ${RATE_LIMIT.LIMIT} per minute for each IP address; over
+that the API answers 429 Too Many Requests with \`Retry-After\`. Day-ahead prices are published once a
+day, around 14:00 Finnish time, so polling every few minutes is plenty. A link back to
+[milloin.xyz](https://milloin.xyz) is appreciated.
 
 **Business use.** For higher volumes, guaranteed availability or custom endpoints,
 contact [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).
@@ -65,7 +72,6 @@ export function createOpenApiDocument(
       'optimal-window',
       'The cheapest times to run a task: presets or your own parameters',
     )
-    .addTag('ence', "When ENCE plays: the Finnish CS2 team's next match")
     .addServer(PUBLIC_API_URL, 'Production');
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),
