@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
-import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
+import { priceServiceFor } from '../shared/electricity-price/testing';
 import { OptimalWindowService } from './optimal-window.service';
 
 const QUARTER_MS = 15 * 60 * 1000;
@@ -26,12 +26,7 @@ const pricesFromNoon = (hourly: number[]): ElectricityPriceDto[] =>
 
 describe('OptimalWindowService', () => {
   const createService = (prices: ElectricityPriceDto[]) =>
-    new OptimalWindowService({
-      getTodayPrices: async () => prices,
-      getTomorrowPrices: async () => {
-        throw new Error('not published');
-      },
-    } as unknown as ElectricityPriceService);
+    new OptimalWindowService(priceServiceFor(prices));
 
   beforeEach(() => jest.useFakeTimers({ now: NOW }));
   afterEach(() => jest.useRealTimers());

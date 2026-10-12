@@ -1,19 +1,16 @@
-import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
-import { planCheapestSchedule, slotsNeeded } from './plan-schedule.helper';
+import { PricePoint } from './price-point';
+import { planCheapestSchedule, slotsNeeded } from './schedule';
 
 const QUARTER_MS = 15 * 60 * 1000;
 const START = Date.parse('2025-10-01T12:00:00.000Z');
 
-/** 15-minute prices in c/kWh from 12:00 UTC, as €/kWh */
-const quarters = (
-  cents: number[],
-  skip: number[] = [],
-): ElectricityPriceDto[] =>
+/** 15-minute prices in c/kWh from 12:00 UTC */
+const quarters = (cents: number[], skip: number[] = []): PricePoint[] =>
   cents
     .map((value, q) => ({
-      price: value / 100,
-      startDate: new Date(START + q * QUARTER_MS).toISOString(),
-      endDate: new Date(START + (q + 1) * QUARTER_MS).toISOString(),
+      price: value,
+      startTime: new Date(START + q * QUARTER_MS).toISOString(),
+      endTime: new Date(START + (q + 1) * QUARTER_MS).toISOString(),
     }))
     .filter((_, q) => !skip.includes(q));
 
@@ -71,7 +68,7 @@ describe('planCheapestSchedule', () => {
   });
 
   it('matches trying every set of slots', () => {
-    const cost = (prices: ElectricityPriceDto[], energy: number[]) =>
+    const cost = (prices: PricePoint[], energy: number[]) =>
       energy.reduce((sum, kwh, i) => sum + kwh * prices[i].price, 0);
     const blocksOk = (set: number[], min: number) => {
       let run = 1;

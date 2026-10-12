@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PriceCategory } from '../../shared/dto/price-category.enum';
+import { PriceCategory } from '../../pricing/price-category';
 import {
   OptimalTimeDto,
   PricePointDto,

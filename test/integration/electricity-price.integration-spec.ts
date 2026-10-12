@@ -41,20 +41,20 @@ describe('Electricity prices (integration)', () => {
   }, 30000);
 
   it('serves the current price from memory', async () => {
-    const [current] = await electricityPriceService.getCurrentPrices();
+    const current = await electricityPriceService.getCurrentPrice();
     const now = Date.now();
 
-    expect(Date.parse(current.startDate)).toBeLessThanOrEqual(now);
-    expect(Date.parse(current.endDate)).toBeGreaterThan(now);
+    expect(Date.parse(current.startTime)).toBeLessThanOrEqual(now);
+    expect(Date.parse(current.endTime)).toBeGreaterThan(now);
   }, 30000);
 
   it('serves future prices sorted chronologically', async () => {
-    const prices = await electricityPriceService.getFuturePrices();
+    const prices = await electricityPriceService.getUpcomingPrices();
 
     expect(prices.length).toBeGreaterThan(0);
     for (let i = 1; i < prices.length; i++) {
-      expect(Date.parse(prices[i].startDate)).toBeGreaterThan(
-        Date.parse(prices[i - 1].startDate),
+      expect(Date.parse(prices[i].startTime)).toBeGreaterThan(
+        Date.parse(prices[i - 1].startTime),
       );
     }
   }, 30000);

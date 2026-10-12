@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  Post,
-  ValidationPipe,
-} from '@nestjs/common';
+import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiOkResponse,
@@ -45,14 +39,7 @@ export class OptimalScheduleController {
       'Electricity prices are unavailable: both ENTSO-E and the fallback provider (spot-hinta.fi) failed.',
   })
   findSchedule(
-    @Body(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    )
-    request: OptimalScheduleRequestDto,
+    @Body() request: OptimalScheduleRequestDto,
   ): Promise<OptimalScheduleDto> {
     return this.optimalScheduleService.findSchedule(request);
   }

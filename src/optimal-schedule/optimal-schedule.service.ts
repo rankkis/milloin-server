@@ -1,28 +1,39 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { ElectricityPriceDto } from '../shared/electricity-price/dto/electricity-price.dto';
-import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
-import { OptimalScheduleRequestDto } from './dto/optimal-schedule-request.dto';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import {
-  OptimalScheduleDto,
-  ScheduleBlockDto,
-  ScheduleComparisonDto,
-} from './dto/optimal-schedule.dto';
+  PricePoint,
+  QUARTER_MS,
+  byStartTime,
+  quarterStart,
+  round2,
+} from '../pricing/price-point';
 import {
   SlotEnergy,
   planCheapestSchedule,
   quarterKwh,
   slotsNeeded,
-} from './plan-schedule.helper';
+} from '../pricing/schedule';
+import { Clock, systemClock } from '../shared/clock/clock';
+import { ElectricityPriceService } from '../shared/electricity-price/electricity-price.service';
+import { OptimalScheduleRequestDto } from './dto/optimal-schedule-request.dto';
+import {
+  OptimalScheduleDto,
+  ScheduleBlockDto,
+} from './dto/optimal-schedule.dto';
 
-const QUARTER_MS = 15 * 60 * 1000;
-
-const round2 = (value: number): number => Math.round(value * 100) / 100;
+/** A run of slots drawing energy, cost in cents not rounded */
+interface ScheduleRun {
+  startTime: string;
+  endTime: string;
+  energyKwh: number;
+  cost: number;
+}
 const hours = (ms: number): string => `${round2(ms / (4 * QUARTER_MS))} h`;
 
 @Injectable()
 export class OptimalScheduleService {
   constructor(
     private readonly electricityPriceService: ElectricityPriceService,
+    @Optional() private readonly clock: Clock = systemClock,
   ) {}
 
   /**
@@ -41,10 +52,10 @@ export class OptimalScheduleService {
       );
     }
 
-    const prices = await this.getUpcomingPrices();
-    const currentQuarter = Math.floor(Date.now() / QUARTER_MS) * QUARTER_MS;
+    const prices = await this.electricityPriceService.getUpcomingPrices();
+    const currentQuarter = quarterStart(this.clock.now());
     const pricesUntil = prices.length
-      ? Date.parse(prices[prices.length - 1].endDate)
+      ? Date.parse(prices[prices.length - 1].endTime)
       : currentQuarter;
 
     const earliestStart = Math.max(
@@ -63,8 +74,8 @@ export class OptimalScheduleService {
 
     const searched = prices.filter(
       (price) =>
-        Date.parse(price.startDate) >= earliestStart &&
-        Date.parse(price.endDate) <= deadlineAt,
+        Date.parse(price.startTime) >= earliestStart &&
+        Date.parse(price.endTime) <= deadlineAt,
     );
     const energy = planCheapestSchedule(
       searched,
@@ -83,10 +94,8 @@ export class OptimalScheduleService {
       );
     }
 
-    const blocks = this.toBlocks(searched, energy, request.maxPowerKw);
-    const costCents = round2(
-      blocks.reduce((sum, block) => sum + block.costCents, 0),
-    );
+    const runs = this.toRuns(searched, energy, request.maxPowerKw);
+    const cost = runs.reduce((sum, run) => sum + run.cost, 0);
     const startRightAway = this.startRightAway(
       prices,
       earliestStart,
@@ -101,26 +110,37 @@ export class OptimalScheduleService {
       deadlineAt: new Date(deadlineAt).toISOString(),
       minConsecutiveHours,
       pricesUntil: new Date(pricesUntil).toISOString(),
-      costCents,
-      priceAvg: round2(costCents / request.energyKwh),
-      blocks,
+      costCents: round2(cost),
+      priceAvg: round2(cost / request.energyKwh),
+      blocks: runs.map((run): ScheduleBlockDto => ({
+        startTime: run.startTime,
+        endTime: run.endTime,
+        energyKwh: round2(run.energyKwh),
+        costCents: round2(run.cost),
+        priceAvg: round2(run.cost / run.energyKwh),
+      })),
       ...(startRightAway && {
-        startRightAway,
-        savingsCents: round2(startRightAway.costCents - costCents),
+        startRightAway: {
+          startTime: startRightAway.startTime,
+          endTime: startRightAway.endTime,
+          costCents: round2(startRightAway.cost),
+          priceAvg: round2(startRightAway.cost / request.energyKwh),
+        },
+        savingsCents: round2(startRightAway.cost - cost),
       }),
     };
   }
 
   /**
    * Slots that draw energy, grouped into runs of consecutive slots. The
-   * device runs at maxPowerKw from the start of a block until the block's
-   * energy is in, so a block's top-up comes in its last slot.
+   * device runs at maxPowerKw from the start of a run until the run's
+   * energy is in, so a run's top-up comes in its last slot.
    */
-  private toBlocks(
-    prices: ElectricityPriceDto[],
+  private toRuns(
+    prices: PricePoint[],
     energy: SlotEnergy,
     maxPowerKw: number,
-  ): ScheduleBlockDto[] {
+  ): ScheduleRun[] {
     const runs: number[][] = [];
     energy.forEach((kwh, i) => {
       if (!kwh) return;
@@ -128,7 +148,7 @@ export class OptimalScheduleService {
       const previous = run?.[run.length - 1];
       if (
         previous === i - 1 &&
-        prices[previous].endDate === prices[i].startDate
+        prices[previous].endTime === prices[i].startTime
       ) {
         run.push(i);
       } else {
@@ -138,18 +158,17 @@ export class OptimalScheduleService {
     return runs.map((run) => {
       const energyKwh = run.reduce((sum, i) => sum + energy[i], 0);
       let left = energyKwh;
-      let costCents = 0;
+      let cost = 0;
       for (const i of run) {
         const kwh = Math.min(left, quarterKwh(maxPowerKw));
-        costCents += prices[i].price * 100 * kwh;
+        cost += prices[i].price * kwh;
         left -= kwh;
       }
       return {
-        startTime: prices[run[0]].startDate,
-        endTime: prices[run[run.length - 1]].endDate,
-        energyKwh: round2(energyKwh),
-        costCents: round2(costCents),
-        priceAvg: round2(costCents / energyKwh),
+        startTime: prices[run[0]].startTime,
+        endTime: prices[run[run.length - 1]].endTime,
+        energyKwh,
+        cost,
       };
     });
   }
@@ -159,39 +178,24 @@ export class OptimalScheduleService {
    * slot topping up the rest. Undefined when a price is missing on the way.
    */
   private startRightAway(
-    prices: ElectricityPriceDto[],
+    prices: PricePoint[],
     earliestStart: number,
     energyKwh: number,
     maxPowerKw: number,
-  ): ScheduleComparisonDto | undefined {
+  ): Omit<ScheduleRun, 'energyKwh'> | undefined {
     const { count, lastKwh } = slotsNeeded(energyKwh, maxPowerKw);
-    const byStart = new Map(
-      prices.map((price) => [Date.parse(price.startDate), price]),
-    );
-    let costCents = 0;
+    const byStart = byStartTime(prices);
+    let cost = 0;
     for (let q = 0; q < count; q++) {
       const price = byStart.get(earliestStart + q * QUARTER_MS);
       if (!price) return undefined;
       const kwh = q === count - 1 ? lastKwh : quarterKwh(maxPowerKw);
-      costCents += price.price * 100 * kwh;
+      cost += price.price * kwh;
     }
     return {
       startTime: new Date(earliestStart).toISOString(),
       endTime: new Date(earliestStart + count * QUARTER_MS).toISOString(),
-      costCents: round2(costCents),
-      priceAvg: round2(costCents / energyKwh),
+      cost,
     };
-  }
-
-  /** Prices from the current 15-minute interval to the last published one */
-  private async getUpcomingPrices(): Promise<ElectricityPriceDto[]> {
-    const today = await this.electricityPriceService.getTodayPrices();
-    const tomorrow = await this.electricityPriceService
-      .getTomorrowPrices()
-      .catch((): ElectricityPriceDto[] => []);
-    const now = Date.now();
-    return [...today, ...tomorrow].filter(
-      (price) => Date.parse(price.endDate) > now,
-    );
   }
 }
