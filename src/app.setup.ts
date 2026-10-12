@@ -22,6 +22,7 @@ Prices come from the day-ahead market (ENTSO-E Transparency Platform, spot-hinta
 are UTC (ISO 8601); requests may also give a UTC offset. Errors are \`application/problem+json\`.
 The routes outside \`/v1\` are deprecated and stop answering on 31 December 2026.
 The OpenAPI document is at [milloin.xyz/api/openapi.json](https://milloin.xyz/api/openapi.json).
+Guides, Home Assistant examples included, are at [milloin.xyz/docs](https://milloin.xyz/docs).
 
 **Free to use.** No API key or sign-up is needed. GET responses carry \`Cache-Control\` up to the next
 quarter hour, when the current price changes, and repeated requests are answered from the CDN. Requests
