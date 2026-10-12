@@ -12,6 +12,10 @@ import { Response } from 'express';
 import { EnceDto } from './dto/ence.dto';
 import { EnceCacheService } from './ence-cache.service';
 import { EnceService } from './ence.service';
+import { HttpCache } from '../shared/http/http-cache';
+
+/** ENCE data is refreshed hourly; the CDN keeps it 10 minutes */
+const ENCE_CACHE_SECONDS = 10 * 60;
 
 @ApiTags('ence')
 @Controller('ence')
@@ -22,6 +26,7 @@ export class EnceController {
   ) {}
 
   @Get()
+  @HttpCache(ENCE_CACHE_SECONDS)
   @ApiOperation({
     summary: "ENCE's next Counter-Strike match, streams, results and news",
     description: `

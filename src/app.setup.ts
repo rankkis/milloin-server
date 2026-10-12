@@ -19,8 +19,9 @@ The OpenAPI document is at [milloin.xyz/api/openapi.json](https://milloin.xyz/ap
 
 **Free to use.** No API key or sign-up is needed. Each IP address may make
 ${RATE_LIMIT.LIMIT} requests per minute; over that the API answers 429 Too Many Requests
-until the minute is up. Please cache responses on your side: day-ahead prices are published once a day, around 14:00
-Finnish time. A link back to [milloin.xyz](https://milloin.xyz) is appreciated.
+until the minute is up. GET responses carry \`Cache-Control\` up to the next quarter hour, when the
+current price changes, and repeated requests are answered from the CDN without counting. Please cache
+responses on your side too: day-ahead prices are published once a day, around 14:00 Finnish time. A link back to [milloin.xyz](https://milloin.xyz) is appreciated.
 
 **Business use.** For higher volumes, guaranteed availability or custom endpoints,
 contact [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).
