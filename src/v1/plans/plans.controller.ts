@@ -34,7 +34,7 @@ const INVALID = {
 const UNAVAILABLE = { description: PRICES_UNAVAILABLE, type: ProblemDto };
 
 @ApiTags('plans')
-@Controller('v1/plans')
+@Controller('v1/electricity/plans')
 export class PlansController {
   constructor(private readonly plansService: PlansService) {}
 
@@ -56,7 +56,7 @@ fixed \`earliestStart\` (for example \`today\`) stays the same between requests,
 \`activeNow\` runs exactly the planned time.
 
 Example: charge 50 kWh at 11 kW before 08:00 tomorrow, at least an hour at a time:
-\`/v1/plans?pausable=true&energyKwh=50&maxPowerKw=11&minBlockHours=1&latestEnd=2026-10-13T08:00:00%2B03:00\`
+\`/v1/electricity/plans?pausable=true&energyKwh=50&maxPowerKw=11&minBlockHours=1&latestEnd=2026-10-13T08:00:00%2B03:00\`
     `,
   })
   @ApiOkResponse({ type: PlansDto })
@@ -72,7 +72,7 @@ Example: charge 50 kWh at 11 kW before 08:00 tomorrow, at least an hour at a tim
     operationId: 'searchPlans',
     summary: 'When to run a load, with inputs too long for a URL',
     description: `
-The same as GET /v1/plans with the fields in a JSON body, plus \`profileKwh\` for a load whose power changes and
+The same as GET /v1/electricity/plans with the fields in a JSON body, plus \`profileKwh\` for a load whose power changes and
 \`startTimes\` to compare given starts. Responses to POST are not cached by the CDN; prefer GET when it is enough.
     `,
   })
@@ -88,7 +88,8 @@ The same as GET /v1/plans with the fields in a JSON body, plus \`profileKwh\` fo
   @ApiOperation({
     operationId: 'listPlanPresets',
     summary: 'The ready-made loads',
-    description: 'Each preset is a set of GET /v1/plans parameters.',
+    description:
+      'Each preset is a set of GET /v1/electricity/plans parameters.',
   })
   @ApiOkResponse({ type: [PlanPresetDto] })
   listPlanPresets(): PlanPresetDto[] {
@@ -100,7 +101,7 @@ The same as GET /v1/plans with the fields in a JSON body, plus \`profileKwh\` fo
     operationId: 'getPresetPlans',
     summary: 'When to run a ready-made load',
     description:
-      "GET /v1/plans with the preset's parameters. Any GET /v1/plans parameter overrides the preset's, for example `/v1/plans/presets/ev-charging?energyKwh=30&latestEnd=tomorrow`.",
+      "GET /v1/electricity/plans with the preset's parameters. Any GET /v1/electricity/plans parameter overrides the preset's, for example `/v1/electricity/plans/presets/ev-charging?energyKwh=30&latestEnd=tomorrow`.",
   })
   @ApiParam({ name: 'name', enum: PLAN_PRESETS.map((preset) => preset.name) })
   @ApiOkResponse({ type: PlansDto })

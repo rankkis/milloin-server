@@ -11,6 +11,7 @@ import {
   PUBLIC_API_URL,
   createOpenApiDocument,
   enablePublicCors,
+  servePreviousPaths,
   setupSwaggerUi,
 } from '../src/app.setup';
 import {
@@ -98,6 +99,7 @@ describe('API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     enablePublicCors(app);
+    servePreviousPaths(app);
     setupSwaggerUi(app, createOpenApiDocument(app));
     await app.init();
   });
@@ -108,7 +110,7 @@ describe('API (e2e)', () => {
 
   it('lets the CDN cache GET responses until the next quarter hour', async () => {
     const { headers } = await request(app.getHttpServer())
-      .get('/v1/prices/current')
+      .get('/v1/electricity/prices/current')
       .expect(200);
 
     const sMaxAge = Number(/s-maxage=(\d+)/.exec(headers['cache-control'])[1]);
@@ -119,12 +121,12 @@ describe('API (e2e)', () => {
 
   it('does not let errors or POST responses be cached', async () => {
     const notFound = await request(app.getHttpServer())
-      .get('/v1/plans/presets/unknown')
+      .get('/v1/electricity/plans/presets/unknown')
       .expect(404);
     expect(notFound.headers['cache-control']).toBe('no-store');
 
     const posted = await request(app.getHttpServer())
-      .post('/v1/plans/search')
+      .post('/v1/electricity/plans/search')
       .send({ durationHours: 1 })
       .expect(200);
     expect(posted.headers['cache-control']).toBeUndefined();
@@ -132,7 +134,7 @@ describe('API (e2e)', () => {
 
   it('GET /v1/prices returns today and tomorrow with the price now', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/v1/prices')
+      .get('/v1/electricity/prices')
       .expect(200);
 
     const midnight = startOfHelsinkiDay(new Date()).toISOString();
@@ -167,7 +169,9 @@ describe('API (e2e)', () => {
       .toISOString()
       .replace('.000Z', '+03:00');
     const { body } = await request(app.getHttpServer())
-      .get(`/v1/prices?resolution=hour&from=${from.toISOString()}&to=${to}`)
+      .get(
+        `/v1/electricity/prices?resolution=hour&from=${from.toISOString()}&to=${to}`,
+      )
       .expect(200);
 
     expect(body.meta.resolution).toBe('hour');
@@ -178,20 +182,20 @@ describe('API (e2e)', () => {
 
   it('GET /v1/prices leaves VAT out with vat=false', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/v1/prices/current?vat=false&area=FI')
+      .get('/v1/electricity/prices/current?vat=false&area=FI')
       .expect(200);
 
     expect(body.price).toBe(6.37); // 8 / 1.255
     expect(body.category).toBe('NORMAL');
     expect(body.meta).toMatchObject({ vatIncluded: false, vatPercent: 0 });
     await request(app.getHttpServer())
-      .get('/v1/prices/current?area=SE3')
+      .get('/v1/electricity/prices/current?area=SE3')
       .expect(400);
   });
 
   it('GET /v1/prices answers invalid parameters with problem details', async () => {
     const { body, headers } = await request(app.getHttpServer())
-      .get('/v1/prices?resolution=day&extra=1')
+      .get('/v1/electricity/prices?resolution=day&extra=1')
       .expect(400);
 
     expect(headers['content-type']).toMatch(/^application\/problem\+json/);
@@ -208,7 +212,7 @@ describe('API (e2e)', () => {
 
   it('GET /v1/prices/current returns the price now', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/v1/prices/current')
+      .get('/v1/electricity/prices/current')
       .expect(200);
 
     expect(body).toMatchObject({ price: 8, category: 'NORMAL' });
@@ -217,7 +221,7 @@ describe('API (e2e)', () => {
 
   it('GET /v1/plans ranks continuous runs with costs and savings', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/v1/plans?durationHours=2&energyKwh=1.5')
+      .get('/v1/electricity/plans?durationHours=2&energyKwh=1.5')
       .expect(200);
 
     expect(body.request).toMatchObject({
@@ -241,7 +245,7 @@ describe('API (e2e)', () => {
     const latestEnd = new Date(Date.now() + 30 * 3600000).toISOString();
     const { body } = await request(app.getHttpServer())
       .get(
-        `/v1/plans?pausable=true&energyKwh=22&maxPowerKw=11&minBlockHours=1&latestEnd=${latestEnd}`,
+        `/v1/electricity/plans?pausable=true&energyKwh=22&maxPowerKw=11&minBlockHours=1&latestEnd=${latestEnd}`,
       )
       .expect(200);
 
@@ -269,7 +273,7 @@ describe('API (e2e)', () => {
   it('GET /v1/plans gives the same plan all day from a fixed start', async () => {
     const { body } = await request(app.getHttpServer())
       .get(
-        '/v1/plans?pausable=true&durationHours=4&earliestStart=today&latestEnd=tomorrow',
+        '/v1/electricity/plans?pausable=true&durationHours=4&earliestStart=today&latestEnd=tomorrow',
       )
       .expect(200);
 
@@ -285,7 +289,7 @@ describe('API (e2e)', () => {
   it('GET /v1/plans plans on hourly prices with resolution=hour', async () => {
     const { body } = await request(app.getHttpServer())
       .get(
-        '/v1/plans?pausable=true&energyKwh=25&maxPowerKw=11&resolution=hour&vat=false',
+        '/v1/electricity/plans?pausable=true&energyKwh=25&maxPowerKw=11&resolution=hour&vat=false',
       )
       .expect(200);
 
@@ -301,31 +305,31 @@ describe('API (e2e)', () => {
     // 2 c/kWh with VAT
     expect(body.plans[0].priceAvg).toBe(1.59);
     await request(app.getHttpServer())
-      .get('/v1/plans?durationHours=1.5&resolution=hour')
+      .get('/v1/electricity/plans?durationHours=1.5&resolution=hour')
       .expect(400);
   });
 
   it('GET /v1/plans refuses parameters that do not fit together', async () => {
     const missing = await request(app.getHttpServer())
-      .get('/v1/plans?energyKwh=10')
+      .get('/v1/electricity/plans?energyKwh=10')
       .expect(400);
     expect(missing.body.detail).toBe(
       'Give durationHours, or energyKwh with maxPowerKw',
     );
     await request(app.getHttpServer())
-      .get('/v1/plans?durationHours=1.1')
+      .get('/v1/electricity/plans?durationHours=1.1')
       .expect(400);
     await request(app.getHttpServer())
-      .get('/v1/plans?durationHours=1&minBlockHours=1')
+      .get('/v1/electricity/plans?durationHours=1&minBlockHours=1')
       .expect(400);
     await request(app.getHttpServer())
-      .get('/v1/plans?durationHours=1&pausable=maybe')
+      .get('/v1/electricity/plans?durationHours=1&pausable=maybe')
       .expect(400);
   });
 
   it('GET /v1/plans/presets lists the presets', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/v1/plans/presets')
+      .get('/v1/electricity/plans/presets')
       .expect(200);
 
     expect(body.map((preset) => preset.name)).toEqual([
@@ -337,7 +341,7 @@ describe('API (e2e)', () => {
 
   it('GET /v1/plans/presets/ev-charging takes overrides', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/v1/plans/presets/ev-charging?energyKwh=11')
+      .get('/v1/electricity/plans/presets/ev-charging?energyKwh=11')
       .expect(200);
 
     expect(body.request).toMatchObject({
@@ -349,14 +353,14 @@ describe('API (e2e)', () => {
     });
 
     const byDuration = await request(app.getHttpServer())
-      .get('/v1/plans/presets/ev-charging?durationHours=3')
+      .get('/v1/electricity/plans/presets/ev-charging?durationHours=3')
       .expect(200);
     expect(byDuration.body.request).toMatchObject({
       durationHours: 3,
       energyKwh: 44,
     });
     await request(app.getHttpServer())
-      .get('/v1/plans/presets/unknown')
+      .get('/v1/electricity/plans/presets/unknown')
       .expect(404);
   });
 
@@ -366,7 +370,7 @@ describe('API (e2e)', () => {
       new Date(now + hours * 3600000).toISOString(),
     );
     const { body } = await request(app.getHttpServer())
-      .post('/v1/plans/search')
+      .post('/v1/electricity/plans/search')
       .send({ profileKwh: [2, 2, 1, 1], startTimes })
       .expect(200);
 
@@ -382,7 +386,7 @@ describe('API (e2e)', () => {
 
   it('GET /v1/health tells whether the prices are fresh', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/v1/health')
+      .get('/v1/electricity/health')
       .expect(200);
 
     expect(body).toMatchObject({
@@ -394,14 +398,14 @@ describe('API (e2e)', () => {
     expect(Date.parse(body.nextPricesExpectedAt)).toBeGreaterThan(Date.now());
   });
 
-  it('GET /ence returns the next match with Finnish and English streams', async () => {
+  it('GET /v1/misc/ence returns the next match with Finnish and English streams', async () => {
     const { body } = await request(app.getHttpServer())
-      .get('/ence')
+      .get('/v1/misc/ence')
       .expect(200);
 
     expect(body.team).toEqual({
       name: 'ENCE',
-      logo: 'ence/logos/0123456789abcdef',
+      logo: 'v1/misc/ence/logos/0123456789abcdef',
     });
     expect(body.nextMatch.opponent.name).toBe('Sashi');
     expect(body.nextMatch.streams.map((s: any) => s.language)).toEqual([
@@ -410,21 +414,21 @@ describe('API (e2e)', () => {
     ]);
   });
 
-  it('GET /ence/logos/:id serves a copied logo', async () => {
+  it('GET /v1/misc/ence/logos/:id serves a copied logo', async () => {
     const response = await request(app.getHttpServer())
-      .get('/ence/logos/0123456789abcdef')
+      .get('/v1/misc/ence/logos/0123456789abcdef')
       .expect(200);
 
     expect(response.headers['content-type']).toBe('image/png');
     expect(response.headers['cache-control']).toBe('public, max-age=604800');
     await request(app.getHttpServer())
-      .get('/ence/logos/ffffffffffffffff')
+      .get('/v1/misc/ence/logos/ffffffffffffffff')
       .expect(404);
   });
 
   it('allows browser requests from any origin', async () => {
     await request(app.getHttpServer())
-      .get('/v1/prices/current')
+      .get('/v1/electricity/prices/current')
       .set('Origin', 'https://example.com')
       .expect(200)
       .expect('Access-Control-Allow-Origin', '*');
@@ -432,7 +436,7 @@ describe('API (e2e)', () => {
 
   it('lets browsers POST JSON from any origin', async () => {
     const { headers } = await request(app.getHttpServer())
-      .options('/v1/plans/search')
+      .options('/v1/electricity/plans/search')
       .set('Origin', 'https://example.com')
       .set('Access-Control-Request-Method', 'POST')
       .set('Access-Control-Request-Headers', 'content-type')
@@ -440,6 +444,17 @@ describe('API (e2e)', () => {
 
     expect(headers['access-control-allow-methods']).toContain('POST');
     expect(headers['access-control-allow-headers']).toContain('content-type');
+  });
+
+  it('still answers the paths before the categories', async () => {
+    const prices = await request(app.getHttpServer())
+      .get('/v1/prices/current?vat=false')
+      .expect(200);
+    expect(prices.body.meta.vatIncluded).toBe(false);
+    await request(app.getHttpServer()).get('/v1/plans/presets').expect(200);
+    await request(app.getHttpServer()).get('/v1/health').expect(200);
+    await request(app.getHttpServer()).get('/ence').expect(200);
+    await request(app.getHttpServer()).get('/v1/pricesx').expect(404);
   });
 
   it('GET /api-json describes the public API with a contact', async () => {
@@ -451,23 +466,23 @@ describe('API (e2e)', () => {
     expect(body.servers[0].url).toBe(PUBLIC_API_URL);
     expect(Object.keys(body.paths)).toEqual(
       expect.arrayContaining([
-        '/v1/prices',
-        '/v1/prices/current',
-        '/v1/plans',
-        '/v1/plans/search',
-        '/v1/plans/presets',
-        '/v1/plans/presets/{name}',
-        '/v1/health',
+        '/v1/electricity/prices',
+        '/v1/electricity/prices/current',
+        '/v1/electricity/plans',
+        '/v1/electricity/plans/search',
+        '/v1/electricity/plans/presets',
+        '/v1/electricity/plans/presets/{name}',
+        '/v1/electricity/health',
+        '/v1/misc/ence',
       ]),
     );
-    expect(body.paths['/v1/prices'].get.operationId).toBe('getPrices');
+    expect(body.paths['/v1/electricity/prices'].get.operationId).toBe(
+      'getPrices',
+    );
     expect(
       Object.keys(body.paths).filter((path) => !path.startsWith('/v1')),
     ).toEqual([]);
-    // milloin-web's own endpoint stays out of the public document
-    expect(
-      Object.keys(body.paths).some((path) => path.startsWith('/ence')),
-    ).toBe(false);
+    expect(body.paths['/v1/misc/ence'].get.operationId).toBe('getEnce');
   });
 
   it('GET /api serves Swagger UI', async () => {
@@ -484,27 +499,27 @@ describe('API (e2e)', () => {
     const client = '203.0.113.7';
     for (let i = 0; i < RATE_LIMIT.LIMIT; i++) {
       await request(app.getHttpServer())
-        .get('/v1/prices/current')
+        .get('/v1/electricity/prices/current')
         .set('X-Forwarded-For', client)
         .expect(200);
     }
     await request(app.getHttpServer())
-      .get('/v1/prices/current')
+      .get('/v1/electricity/prices/current')
       .set('X-Forwarded-For', client)
       .expect(429);
     // Another client still gets through
     await request(app.getHttpServer())
-      .get('/v1/prices/current')
+      .get('/v1/electricity/prices/current')
       .set('X-Forwarded-For', '203.0.113.8')
       .expect(200);
     // milloin-web's server-side rendering is not limited
     await request(app.getHttpServer())
-      .get('/v1/prices/current')
+      .get('/v1/electricity/prices/current')
       .set('X-Forwarded-For', client)
       .set(SSR_KEY_HEADER, 'test-ssr-key')
       .expect(200);
     await request(app.getHttpServer())
-      .get('/v1/prices/current')
+      .get('/v1/electricity/prices/current')
       .set('X-Forwarded-For', client)
       .set(SSR_KEY_HEADER, 'wrong-key')
       .expect(429);

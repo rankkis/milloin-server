@@ -7,7 +7,7 @@ export class EnceTeamDto {
   @ApiPropertyOptional({
     description:
       "Path of the team's logo, relative to the API root (e.g. https://milloin.xyz/api/). Missing when the source has no logo.",
-    example: 'ence/logos/3f2a9c0d1b7e4a55',
+    example: 'v1/misc/ence/logos/3f2a9c0d1b7e4a55',
   })
   logo?: string;
 }

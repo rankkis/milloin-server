@@ -15,6 +15,7 @@ SpotHintaProvider ─┘   (tries providers in priority order)
 ## Components
 
 ### `ElectricityPriceService`
+
 Serves prices from memory as `PricePoint`s (`src/pricing/price-point.ts`): c/kWh including VAT, not rounded, converted from the providers' €/kWh once per price list. Days are Finnish days, midnight to midnight Europe/Helsinki time. The time comes from the injected `Clock`.
 
 - `getPrices()`: every price in memory, from Finnish midnight today
@@ -25,9 +26,11 @@ Serves prices from memory as `PricePoint`s (`src/pricing/price-point.ts`): c/kWh
 The calculations on these prices are plain functions in `src/pricing/` (plans, hourly averages, the schedule planner, price and day categories), with no Nest or API DTOs. Services round only their output.
 
 ### `PriceCacheService`
+
 Holds every price from midnight of the current Finnish day up to the last published price.
 
 **When it refreshes**
+
 - On startup, without blocking it
 - At 14:00 and 15:00 Finnish time (cron), after ENTSO-E publishes the next day's prices around 13:45. Only runs on long-lived hosts.
 - On demand, whenever memory is empty or outdated. The request waits for the fetch, gets the fresh prices and leaves them in memory. Concurrent requests share one fetch.
@@ -35,6 +38,7 @@ Holds every price from midnight of the current Finnish day up to the last publis
 **Outdated** means memory does not reach the end of the last delivery day that should be published: today's before 14:00 Finnish time, tomorrow's after it. If tomorrow's prices are late, upstream is asked again at most every 10 minutes and requests in between get what is in memory.
 
 **Fallbacks**
+
 1. ENTSO-E
 2. spot-hinta.fi
 3. Outdated prices from memory, as long as they still cover the current time
@@ -43,9 +47,11 @@ Holds every price from midnight of the current Finnish day up to the last publis
 **Serverless (Vercel)**: memory lives per function instance and is lost on cold start, and in-process cron does not run while an instance is frozen. A fresh instance first reads the prices other instances left in Vercel's runtime cache (`SHARED_PRICE_CACHE`, shared by all instances and kept across deploys) and only fetches upstream when those are outdated too. ENTSO-E takes 2-4 s to answer, so this keeps the first request after a deploy or an idle period fast. Outside Vercel the shared cache lives in process memory.
 
 ### Providers (`IElectricityPriceProvider`)
+
 Each price source implements one method, `fetchPrices(start, end)`, and only fetches. `PriceCacheService` decides when to fetch, tries the providers in the order given by the `ELECTRICITY_PRICE_PROVIDERS` token in `electricity-price.module.ts`, and uses the first non-empty result. To add a source, implement the interface and add it to that list.
 
 #### `EntsoeProvider` (primary)
+
 Day-ahead prices (document type A44, domain `10YFI-1--------U`), converted to EUR/kWh with VAT:
 
 ```
@@ -53,6 +59,7 @@ Consumer price (EUR/kWh) = ENTSO-E price (EUR/MWh) / 1000 × 1.255
 ```
 
 #### `SpotHintaProvider` (fallback)
+
 https://api.spot-hinta.fi, hourly prices split into four 15-minute intervals.
 
 ## Configuration

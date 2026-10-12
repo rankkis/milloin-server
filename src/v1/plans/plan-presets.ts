@@ -1,6 +1,6 @@
 import { PlanPresetDto } from './dto/plans.dto';
 
-/** Ready-made loads at GET /v1/plans/presets/{name} */
+/** Ready-made loads at GET /v1/electricity/plans/presets/{name} */
 export const PLAN_PRESETS: PlanPresetDto[] = [
   {
     name: 'laundry',

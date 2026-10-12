@@ -13,7 +13,7 @@ import { PriceNowDto, PricesDto } from './dto/prices.dto';
 import { PricesService } from './prices.service';
 
 @ApiTags('prices')
-@Controller('v1/prices')
+@Controller('v1/electricity/prices')
 export class PricesController {
   constructor(private readonly pricesService: PricesService) {}
 

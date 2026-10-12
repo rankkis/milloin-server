@@ -40,7 +40,7 @@ export function buildEnceDto(snapshot: EnceSnapshot, now: Date): EnceDto {
   const team = (ref: TeamRef): EnceTeamDto => ({
     name: ref.name,
     ...(ref.logoUrl && logos[ref.logoUrl]
-      ? { logo: `ence/logos/${logos[ref.logoUrl]}` }
+      ? { logo: `v1/misc/ence/logos/${logos[ref.logoUrl]}` }
       : {}),
   });
   const match = (data: MatchData): EnceMatchDto => ({

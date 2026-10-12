@@ -2,14 +2,14 @@
 
 ## Overview
 
-`GET /ence` answers when ENCE, the Finnish CS2 team, plays next: the running or next match with up to 5 Finnish and English streams, the next matches after it, the latest results and news. `GET /ence/logos/:id` serves copies of the team logos. milloin-web's `/ence-pelaa` page shows them.
+`GET /v1/misc/ence` answers when ENCE, the Finnish CS2 team, plays next: the running or next match with up to 5 Finnish and English streams, the next matches after it, the latest results and news. `GET /v1/misc/ence/logos/:id` serves copies of the team logos. milloin-web's `/ence-pelaa` page shows them.
 
 ## Data Flow
 
 ```
 PandaScoreProvider ─┐
-                    ├→ EnceCacheService (memory + shared cache, hourly) → EnceService → GET /ence
-GoogleNewsProvider ─┘        └→ logo copies → GET /ence/logos/:id
+                    ├→ EnceCacheService (memory + shared cache, hourly) → EnceService → GET /v1/misc/ence
+GoogleNewsProvider ─┘        └→ logo copies → GET /v1/misc/ence/logos/:id
 ```
 
 ## Sources

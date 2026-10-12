@@ -9,13 +9,18 @@ export const PUBLIC_API_URL = 'https://milloin.xyz/api';
 const SWAGGER_UI_CDN = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14';
 
 const API_DESCRIPTION = `
-Finnish electricity spot prices and the cheapest times to run a load, the same data that
-powers [milloin.xyz](https://milloin.xyz).
+The data that powers [milloin.xyz](https://milloin.xyz), by category: Finnish electricity spot prices and
+the cheapest times to run a load, and other things that happen.
 
-- \`GET /v1/prices\`: prices from a time to a time, with the price now. \`/v1/prices/current\` for just the price now.
-- \`GET /v1/plans\`: when to run a load, continuous (a washing machine) or pausable (an EV charger), with
-  \`activeNow\` for switching a device. Ready-made loads at \`/v1/plans/presets\`.
-- \`GET /v1/health\`: whether the prices are fresh and when tomorrow's arrive.
+Electricity, \`/v1/electricity\`:
+- \`GET /v1/electricity/prices\`: prices from a time to a time, with the price now. \`/v1/electricity/prices/current\`
+  for just the price now.
+- \`GET /v1/electricity/plans\`: when to run a load, continuous (a washing machine) or pausable (an EV charger),
+  with \`activeNow\` for switching a device. Ready-made loads at \`/v1/electricity/plans/presets\`.
+- \`GET /v1/electricity/health\`: whether the prices are fresh and when tomorrow's arrive.
+
+Miscellaneous, \`/v1/misc\`:
+- \`GET /v1/misc/ence\`: the next Counter-Strike match of ENCE, the Finnish CS2 team, with streams, results and news.
 
 Prices come from the day-ahead market (ENTSO-E Transparency Platform, spot-hinta.fi as fallback) in
 15-minute resolution, in c/kWh including 25.5 % VAT. Money is in cents, energy in kWh, power in kW. Times
@@ -33,6 +38,30 @@ day, around 14:00 Finnish time, so polling every few minutes is plenty. A link b
 **Business use.** For higher volumes, guaranteed availability or custom endpoints,
 contact [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).
 `;
+
+/** Paths before the categories, served until milloin-web has moved */
+const PREVIOUS_PATHS: [string, string][] = [
+  ['/v1/prices', '/v1/electricity/prices'],
+  ['/v1/plans', '/v1/electricity/plans'],
+  ['/v1/health', '/v1/electricity/health'],
+  ['/ence', '/v1/misc/ence'],
+];
+
+/** Answers the paths before the categories as the new ones, outside the OpenAPI document */
+export function servePreviousPaths(app: INestApplication): void {
+  app.use((req: { url: string }, _res: unknown, next: () => void) => {
+    const previous = PREVIOUS_PATHS.find(
+      ([from]) =>
+        req.url === from ||
+        req.url.startsWith(`${from}/`) ||
+        req.url.startsWith(`${from}?`),
+    );
+    if (previous) {
+      req.url = previous[1] + req.url.slice(previous[0].length);
+    }
+    next();
+  });
+}
 
 /**
  * The public API: any origin may call it from a browser. No endpoint
@@ -61,12 +90,19 @@ export function createOpenApiDocument(
     .setDescription(API_DESCRIPTION)
     .setVersion('1.0')
     .setContact('Milloin', 'https://milloin.xyz', CONTACT_EMAIL)
-    .addTag('prices', 'Spot prices: the price now and from a time to a time')
+    .addTag(
+      'prices',
+      'Electricity spot prices: the price now and from a time to a time',
+    )
     .addTag(
       'plans',
-      'When to run a load: continuous or pausable, presets or your own parameters',
+      'When to run an electric load: continuous or pausable, presets or your own parameters',
     )
-    .addTag('health', 'Whether the prices are fresh')
+    .addTag('health', 'Whether the electricity prices are fresh')
+    .addTag(
+      'ence',
+      "ENCE's next Counter-Strike match, streams, results and news",
+    )
     .addServer(PUBLIC_API_URL, 'Production');
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),

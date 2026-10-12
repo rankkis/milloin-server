@@ -4,6 +4,7 @@ import { AppModule } from '../src/app.module';
 import {
   createOpenApiDocument,
   enablePublicCors,
+  servePreviousPaths,
   setupSwaggerUi,
 } from '../src/app.setup';
 import { VercelRequest, VercelResponse } from '@vercel/node';
@@ -16,6 +17,7 @@ const createNestApp = async () => {
     app = await NestFactory.create(AppModule);
 
     enablePublicCors(app);
+    servePreviousPaths(app);
     swaggerDocument = createOpenApiDocument(app);
     setupSwaggerUi(app, swaggerDocument);
 

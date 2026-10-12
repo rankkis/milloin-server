@@ -1,11 +1,11 @@
 import { Controller, Get, NotFoundException, Param, Res } from '@nestjs/common';
 import {
-  ApiExcludeController,
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
   ApiResponse,
   ApiServiceUnavailableResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Response } from 'express';
@@ -17,9 +17,8 @@ import { HttpCache } from '../shared/http/http-cache';
 /** ENCE data is refreshed hourly; the CDN keeps it 10 minutes */
 const ENCE_CACHE_SECONDS = 10 * 60;
 
-// milloin-web's own endpoint, left out of the public API document
-@ApiExcludeController()
-@Controller('ence')
+@ApiTags('ence')
+@Controller('v1/misc/ence')
 export class EnceController {
   constructor(
     private readonly enceService: EnceService,
@@ -52,7 +51,7 @@ export class EnceController {
   @ApiOperation({
     summary: 'A team logo',
     description:
-      'Copy of a team logo, by the id in the `logo` paths of GET /ence.',
+      'Copy of a team logo, by the id in the `logo` paths of GET /v1/misc/ence.',
   })
   @ApiParam({ name: 'id', example: '3f2a9c0d1b7e4a55' })
   @ApiResponse({ status: 200, description: 'The image' })
