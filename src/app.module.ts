@@ -1,5 +1,5 @@
 import { Module, ValidationPipe } from '@nestjs/common';
-import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { OverviewModule } from './overview/overview.module';
 import { OptimalWindowModule } from './optimal-window/optimal-window.module';
@@ -8,6 +8,11 @@ import { EnceModule } from './ence/ence.module';
 import { RATE_LIMIT_OPTIONS } from './shared/config/rate-limit.config';
 import { HttpCacheInterceptor } from './shared/http/http-cache';
 import { ClockModule } from './shared/clock/clock';
+import {
+  ProblemDetailsFilter,
+  validationException,
+} from './shared/http/problem-details';
+import { PricesModule } from './v1/prices/prices.module';
 
 @Module({
   imports: [
@@ -17,6 +22,7 @@ import { ClockModule } from './shared/clock/clock';
     OptimalWindowModule,
     OptimalScheduleModule,
     EnceModule,
+    PricesModule,
   ],
   controllers: [],
   providers: [
@@ -30,8 +36,10 @@ import { ClockModule } from './shared/clock/clock';
         transform: true,
         whitelist: true,
         forbidNonWhitelisted: true,
+        exceptionFactory: validationException,
       }),
     },
+    { provide: APP_FILTER, useClass: ProblemDetailsFilter },
   ],
 })
 export class AppModule {}

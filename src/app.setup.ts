@@ -54,6 +54,7 @@ export function createOpenApiDocument(
     .setDescription(API_DESCRIPTION)
     .setVersion('1.0')
     .setContact('Milloin', 'https://milloin.xyz', CONTACT_EMAIL)
+    .addTag('prices', 'Spot prices: the price now and from a time to a time')
     .addTag('overview', 'Current price, upcoming prices and averages')
     .addTag(
       'optimal-window',
@@ -64,7 +65,10 @@ export function createOpenApiDocument(
   extraServers.forEach((server) =>
     builder.addServer(server.url, server.description),
   );
-  return SwaggerModule.createDocument(app, builder.build());
+  return SwaggerModule.createDocument(app, builder.build(), {
+    // Generated clients name operations after the method: getPrices
+    operationIdFactory: (_controller: string, method: string) => method,
+  });
 }
 
 /**
