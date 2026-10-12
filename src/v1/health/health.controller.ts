@@ -41,7 +41,7 @@ export class HealthDto {
 }
 
 @ApiTags('health')
-@Controller('v1/health')
+@Controller('v1/electricity/health')
 export class HealthController {
   constructor(
     private readonly electricityPriceService: ElectricityPriceService,

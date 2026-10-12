@@ -129,7 +129,7 @@ describe('buildEnceDto', () => {
       snapshot([match('a', '2026-10-10T15:30:00.000Z')]),
       now,
     );
-    expect(dto.team.logo).toBe('ence/logos/aaaaaaaaaaaaaaaa');
+    expect(dto.team.logo).toBe('v1/misc/ence/logos/aaaaaaaaaaaaaaaa');
     expect(dto.nextMatch?.opponent.logo).toBeUndefined();
   });
 });

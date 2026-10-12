@@ -226,7 +226,7 @@ export class PlansDto {
 
   @ApiProperty({
     description:
-      'POST /v1/plans/search only: the run from each requested start time, in the order given. Starts whose run passes the published prices are left out.',
+      'POST /v1/electricity/plans/search only: the run from each requested start time, in the order given. Starts whose run passes the published prices are left out.',
     type: [StartTimePlanDto],
     required: false,
   })
