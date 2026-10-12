@@ -7,7 +7,9 @@ import {
 import { hourlyPrices } from '../../pricing/hours';
 import { priceCategory } from '../../pricing/price-category';
 import { PricePoint, round2 } from '../../pricing/price-point';
-import { VAT_PERCENT } from '../../pricing/vat';
+import { dayCategories } from '../../pricing/day-category';
+import { VAT_PERCENT, withoutVat } from '../../pricing/vat';
+import { PriceOptionsDto } from '../common/price-options.dto';
 import { Clock } from '../../shared/clock/clock';
 import { ElectricityPriceService } from '../../shared/electricity-price/electricity-price.service';
 import { startOfHelsinkiDay } from '../../shared/utils/helsinki-time.helper';
@@ -25,12 +27,17 @@ interface TimedPrice {
   price: number;
 }
 
-const toPriceDto = (price: TimedPrice): PriceDto => ({
-  startTime: price.startTime,
-  endTime: price.endTime,
-  price: round2(price.price),
-  category: priceCategory(price.price),
-});
+/** Prices come with VAT; categories are judged on that price either way */
+const toPriceDtos = (prices: TimedPrice[], vat: boolean): PriceDto[] => {
+  const dayCategory = dayCategories(prices);
+  return prices.map((price, i) => ({
+    startTime: price.startTime,
+    endTime: price.endTime,
+    price: round2(vat ? price.price : withoutVat(price.price)),
+    category: priceCategory(price.price),
+    dayCategory: dayCategory[i],
+  }));
+};
 
 const covers = (price: TimedPrice, time: number): boolean =>
   Date.parse(price.startTime) <= time && Date.parse(price.endTime) > time;
@@ -53,27 +60,26 @@ export class PricesService {
     }
 
     const resolution = query.resolution ?? '15min';
+    const vat = query.vat ?? true;
     const quarters = await this.electricityPriceService.getPrices();
-    const prices = this.atResolution(quarters, resolution);
+    const prices = toPriceDtos(this.atResolution(quarters, resolution), vat);
     return {
-      current: toPriceDto(this.current(prices, now)),
-      prices: prices
-        .filter(
-          (price) =>
-            Date.parse(price.endTime) > from &&
-            Date.parse(price.startTime) < to,
-        )
-        .map(toPriceDto),
-      meta: this.meta(quarters, resolution),
+      current: this.current(prices, now),
+      prices: prices.filter(
+        (price) =>
+          Date.parse(price.endTime) > from && Date.parse(price.startTime) < to,
+      ),
+      meta: this.meta(quarters, resolution, vat),
     };
   }
 
-  async getCurrentPrice(): Promise<PriceNowDto> {
+  async getCurrentPrice(options: PriceOptionsDto): Promise<PriceNowDto> {
     const now = this.clock.now();
+    const vat = options.vat ?? true;
     const quarters = await this.electricityPriceService.getPrices();
     return {
-      ...toPriceDto(this.current(quarters, now)),
-      meta: this.meta(quarters, '15min'),
+      ...this.current(toPriceDtos(quarters, vat), now),
+      meta: this.meta(quarters, '15min', vat),
     };
   }
 
@@ -90,7 +96,7 @@ export class PricesService {
       : quarters;
   }
 
-  private current(prices: TimedPrice[], now: number): TimedPrice {
+  private current(prices: PriceDto[], now: number): PriceDto {
     const current = prices.find((price) => covers(price, now));
     if (!current) {
       throw new HttpException(
@@ -101,11 +107,15 @@ export class PricesService {
     return current;
   }
 
-  private meta(quarters: PricePoint[], resolution: Resolution): PricesMetaDto {
+  private meta(
+    quarters: PricePoint[],
+    resolution: Resolution,
+    vat: boolean,
+  ): PricesMetaDto {
     return {
       unit: 'c/kWh',
-      vatIncluded: true,
-      vatPercent: VAT_PERCENT,
+      vatIncluded: vat,
+      vatPercent: vat ? VAT_PERCENT : 0,
       area: 'FI',
       resolution,
       ...this.electricityPriceService.getFreshness(quarters),

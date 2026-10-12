@@ -20,27 +20,41 @@ export class PriceDto {
   endTime: string;
 
   @ApiProperty({
-    description: `Price in c/kWh including ${VAT_PERCENT} % VAT, no transfer or margin; with resolution=hour the hour's average`,
+    description: `Price in c/kWh including ${VAT_PERCENT} % VAT (without it with vat=false), no transfer or margin; with resolution=hour the hour's average`,
     example: 5.23,
   })
   price: number;
 
   @ApiProperty({
-    description: CATEGORY_DESCRIPTION,
+    description: `${CATEGORY_DESCRIPTION}, judged on the price with VAT`,
     enum: PriceCategory,
     example: PriceCategory.NORMAL,
   })
   category: PriceCategory;
+
+  @ApiProperty({
+    description:
+      "The price among its own Finnish day's prices: the cheapest fifth of the day is VERY_CHEAP, the dearest fifth VERY_EXPENSIVE. Always marks some hours cheap, for automations that run in the day's cheapest hours.",
+    enum: PriceCategory,
+    example: PriceCategory.CHEAP,
+  })
+  dayCategory: PriceCategory;
 }
 
 export class PricesMetaDto {
   @ApiProperty({ description: 'Unit of every price', example: 'c/kWh' })
   unit: 'c/kWh';
 
-  @ApiProperty({ description: 'Whether prices include VAT', example: true })
+  @ApiProperty({
+    description: 'Whether prices include VAT (vat=false leaves it out)',
+    example: true,
+  })
   vatIncluded: boolean;
 
-  @ApiProperty({ description: 'VAT included, in percent', example: 25.5 })
+  @ApiProperty({
+    description: 'VAT included, in percent: 0 with vat=false',
+    example: 25.5,
+  })
   vatPercent: number;
 
   @ApiProperty({ description: 'Bidding zone', example: 'FI' })

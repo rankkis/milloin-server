@@ -317,6 +317,7 @@ describe('API (e2e)', () => {
       endTime: new Date(Date.parse(midnight) + QUARTER_MS).toISOString(),
       price: expect.any(Number),
       category: expect.any(String),
+      dayCategory: expect.any(String),
     });
     expect(body.meta).toEqual({
       unit: 'c/kWh',
@@ -347,6 +348,19 @@ describe('API (e2e)', () => {
     expect(body.prices).toHaveLength(3);
     expect(body.prices[0].startTime).toBe(from.toISOString());
     expect(body.current.startTime).toBe(from.toISOString());
+  });
+
+  it('GET /v1/prices leaves VAT out with vat=false', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/v1/prices/current?vat=false&area=FI')
+      .expect(200);
+
+    expect(body.price).toBe(6.37); // 8 / 1.255
+    expect(body.category).toBe('NORMAL');
+    expect(body.meta).toMatchObject({ vatIncluded: false, vatPercent: 0 });
+    await request(app.getHttpServer())
+      .get('/v1/prices/current?area=SE3')
+      .expect(400);
   });
 
   it('GET /v1/prices answers invalid parameters with problem details', async () => {
@@ -440,6 +454,29 @@ describe('API (e2e)', () => {
       startOfHelsinkiDay(new Date(), 1).toISOString(),
     );
     expect(body.plans[0].priceAvg).toBe(2);
+  });
+
+  it('GET /v1/plans plans on hourly prices with resolution=hour', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get(
+        '/v1/plans?pausable=true&energyKwh=25&maxPowerKw=11&resolution=hour&vat=false',
+      )
+      .expect(200);
+
+    expect(body.request).toMatchObject({
+      resolution: 'hour',
+      durationHours: 3,
+      minBlockHours: 1,
+    });
+    expect(body.meta.vatIncluded).toBe(false);
+    body.plans[0].blocks.forEach((block) => {
+      expect(new Date(block.startTime).getUTCMinutes()).toBe(0);
+    });
+    // 2 c/kWh with VAT
+    expect(body.plans[0].priceAvg).toBe(1.59);
+    await request(app.getHttpServer())
+      .get('/v1/plans?durationHours=1.5&resolution=hour')
+      .expect(400);
   });
 
   it('GET /v1/plans refuses parameters that do not fit together', async () => {

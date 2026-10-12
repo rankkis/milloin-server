@@ -134,6 +134,9 @@ export class ResolvedPlanRequestDto {
   @ApiProperty({ example: 3 })
   limit: number;
 
+  @ApiProperty({ enum: ['15min', 'hour'], example: '15min' })
+  resolution: '15min' | 'hour';
+
   @ApiProperty({
     description: 'The preset used, if any',
     example: 'laundry',
@@ -152,7 +155,10 @@ export class PlansMetaDto {
   @ApiProperty({ example: true })
   vatIncluded: boolean;
 
-  @ApiProperty({ example: VAT_PERCENT })
+  @ApiProperty({
+    description: 'VAT included, in percent: 0 with vat=false',
+    example: VAT_PERCENT,
+  })
   vatPercent: number;
 
   @ApiProperty({ example: 'FI' })

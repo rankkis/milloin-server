@@ -6,6 +6,7 @@ import {
   ApiServiceUnavailableResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { PriceOptionsDto } from '../common/price-options.dto';
 import { PRICES_UNAVAILABLE } from '../common/responses';
 import { PricesQueryDto } from './dto/prices-query.dto';
 import { PriceNowDto, PricesDto } from './dto/prices.dto';
@@ -43,8 +44,9 @@ For a Home Assistant REST sensor, \`current.price\` is the state and \`prices\` 
       "This quarter hour's price and category, a few hundred bytes for frequent polling.",
   })
   @ApiOkResponse({ type: PriceNowDto })
+  @ApiBadRequestResponse({ description: 'A query parameter is not valid' })
   @ApiServiceUnavailableResponse({ description: PRICES_UNAVAILABLE })
-  getCurrentPrice(): Promise<PriceNowDto> {
-    return this.pricesService.getCurrentPrice();
+  getCurrentPrice(@Query() options: PriceOptionsDto): Promise<PriceNowDto> {
+    return this.pricesService.getCurrentPrice(options);
   }
 }

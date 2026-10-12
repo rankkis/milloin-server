@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsIn, IsOptional } from 'class-validator';
+import { PriceOptionsDto } from '../../common/price-options.dto';
 import { RestoreOffsetPlus, TIME_FORMAT_NOTE } from '../../common/time-query';
 
 export const RESOLUTIONS = ['15min', 'hour'] as const;
 export type Resolution = (typeof RESOLUTIONS)[number];
 
-export class PricesQueryDto {
+export class PricesQueryDto extends PriceOptionsDto {
   @ApiProperty({
     description: `Prices ending after this time. Defaults to midnight today, Finnish time. ${TIME_FORMAT_NOTE}`,
     required: false,

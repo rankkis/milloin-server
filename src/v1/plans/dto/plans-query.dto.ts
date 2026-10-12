@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -10,7 +11,9 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { PriceOptionsDto, QueryBoolean } from '../../common/price-options.dto';
 import { RestoreOffsetPlus, TIME_FORMAT_NOTE } from '../../common/time-query';
+import { RESOLUTIONS, Resolution } from '../../prices/dto/prices-query.dto';
 
 export const DEFAULT_PLAN_LIMIT = 3;
 export const MAX_PLAN_LIMIT = 10;
@@ -23,12 +26,7 @@ export const DAY_KEYWORDS = ['today', 'tomorrow'] as const;
 const isKeyword = (value: unknown): boolean =>
   (DAY_KEYWORDS as readonly unknown[]).includes(value);
 
-const toBoolean = () =>
-  Transform(({ value }) =>
-    value === 'true' ? true : value === 'false' ? false : value,
-  );
-
-export class PlansQueryDto {
+export class PlansQueryDto extends PriceOptionsDto {
   @ApiProperty({
     description:
       'How long the load runs, in hours in steps of 0.25 (15 minutes). For a pausable load, the total time on. Give this, or energyKwh with maxPowerKw.',
@@ -82,7 +80,7 @@ export class PlansQueryDto {
     default: false,
   })
   @IsOptional()
-  @toBoolean()
+  @QueryBoolean()
   @IsBoolean()
   pausable?: boolean;
 
@@ -139,4 +137,15 @@ export class PlansQueryDto {
   @Min(1)
   @Max(MAX_PLAN_LIMIT)
   limit?: number;
+
+  @ApiProperty({
+    description:
+      '15min (default) plans on the market prices as they are. hour plans on clock-hour averages, for contracts priced by the hour: runs then start on full hours, and durationHours and minBlockHours must be whole hours.',
+    required: false,
+    enum: RESOLUTIONS,
+    default: '15min',
+  })
+  @IsOptional()
+  @IsIn(RESOLUTIONS)
+  resolution?: Resolution;
 }
