@@ -3,7 +3,6 @@ import { AppModule } from './app.module';
 import {
   createOpenApiDocument,
   enablePublicCors,
-  servePreviousPaths,
   setupSwaggerUi,
 } from './app.setup';
 
@@ -12,7 +11,6 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
 
   enablePublicCors(app);
-  servePreviousPaths(app);
   const document = createOpenApiDocument(app, [
     { url: `http://localhost:${port}`, description: 'Development server' },
   ]);

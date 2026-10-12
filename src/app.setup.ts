@@ -39,30 +39,6 @@ day, around 14:00 Finnish time, so polling every few minutes is plenty. A link b
 contact [${CONTACT_EMAIL}](mailto:${CONTACT_EMAIL}).
 `;
 
-/** Paths before the categories, served until milloin-web has moved */
-const PREVIOUS_PATHS: [string, string][] = [
-  ['/v1/prices', '/v1/electricity/prices'],
-  ['/v1/plans', '/v1/electricity/plans'],
-  ['/v1/health', '/v1/electricity/health'],
-  ['/ence', '/v1/misc/ence'],
-];
-
-/** Answers the paths before the categories as the new ones, outside the OpenAPI document */
-export function servePreviousPaths(app: INestApplication): void {
-  app.use((req: { url: string }, _res: unknown, next: () => void) => {
-    const previous = PREVIOUS_PATHS.find(
-      ([from]) =>
-        req.url === from ||
-        req.url.startsWith(`${from}/`) ||
-        req.url.startsWith(`${from}?`),
-    );
-    if (previous) {
-      req.url = previous[1] + req.url.slice(previous[0].length);
-    }
-    next();
-  });
-}
-
 /**
  * The public API: any origin may call it from a browser. No endpoint
  * uses cookies or other credentials, so a wildcard origin is safe.
