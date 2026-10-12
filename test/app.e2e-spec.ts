@@ -11,7 +11,6 @@ import {
   PUBLIC_API_URL,
   createOpenApiDocument,
   enablePublicCors,
-  servePreviousPaths,
   setupSwaggerUi,
 } from '../src/app.setup';
 import {
@@ -99,7 +98,6 @@ describe('API (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     enablePublicCors(app);
-    servePreviousPaths(app);
     setupSwaggerUi(app, createOpenApiDocument(app));
     await app.init();
   });
@@ -446,15 +444,10 @@ describe('API (e2e)', () => {
     expect(headers['access-control-allow-headers']).toContain('content-type');
   });
 
-  it('still answers the paths before the categories', async () => {
-    const prices = await request(app.getHttpServer())
-      .get('/v1/prices/current?vat=false')
-      .expect(200);
-    expect(prices.body.meta.vatIncluded).toBe(false);
-    await request(app.getHttpServer()).get('/v1/plans/presets').expect(200);
-    await request(app.getHttpServer()).get('/v1/health').expect(200);
-    await request(app.getHttpServer()).get('/ence').expect(200);
-    await request(app.getHttpServer()).get('/v1/pricesx').expect(404);
+  it('no longer answers the paths before the categories', async () => {
+    for (const path of ['/v1/prices', '/v1/plans', '/v1/health', '/ence']) {
+      await request(app.getHttpServer()).get(path).expect(404);
+    }
   });
 
   it('GET /api-json describes the public API with a contact', async () => {
