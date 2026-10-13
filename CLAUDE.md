@@ -66,6 +66,7 @@ test/
 - Prefer github flow by using feature-branches
 - Always squeeze commits in feature branches before it is merged with master branch
 - Use rebase always to prevent merge commits in history
+- A pull request may be squash-merged to master once every check is green; no separate approval is needed
 
 ## Deployment Notes
 
