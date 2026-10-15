@@ -424,6 +424,39 @@ describe('API (e2e)', () => {
       .expect(404);
   });
 
+  it("GET /v1/electricity/forecasts/72h serves the forecaster's forecast", async () => {
+    process.env.FORECASTER_API_URL = 'https://forecaster.test';
+    process.env.FORECASTER_API_KEY = 'test-forecaster-key';
+    const forecast = {
+      horizon: '72h',
+      resolution: 'hour',
+      issuedAt: '2026-10-15T09:00:00.000Z',
+      modelVersion: '72h-hour-profile-v1',
+      change: '0001',
+      points: [],
+    };
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify(forecast)));
+
+    try {
+      const response = await request(app.getHttpServer())
+        .get('/v1/electricity/forecasts/72h')
+        .expect(200);
+      expect(response.body).toEqual(forecast);
+      expect(response.headers['cache-control']).toContain('s-maxage=600');
+      expect(fetchSpy.mock.calls[0][0]).toBe(
+        'https://forecaster.test/v1/forecasts/72h',
+      );
+
+      await request(app.getHttpServer())
+        .get('/v1/electricity/forecasts/year')
+        .expect(400);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('allows browser requests from any origin', async () => {
     await request(app.getHttpServer())
       .get('/v1/electricity/prices/current')
@@ -476,6 +509,10 @@ describe('API (e2e)', () => {
       Object.keys(body.paths).filter((path) => !path.startsWith('/v1')),
     ).toEqual([]);
     expect(body.paths['/v1/misc/ence'].get.operationId).toBe('getEnce');
+    // milloin-web's forecasts are not part of the public API
+    expect(
+      Object.keys(body.paths).filter((path) => path.includes('forecast')),
+    ).toEqual([]);
   });
 
   it('GET /api serves Swagger UI', async () => {
