@@ -12,6 +12,7 @@ import {
 import { PricesModule } from './v1/prices/prices.module';
 import { PlansModule } from './v1/plans/plans.module';
 import { HealthModule } from './v1/health/health.module';
+import { ForecastsModule } from './v1/forecasts/forecasts.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { HealthModule } from './v1/health/health.module';
     PricesModule,
     PlansModule,
     HealthModule,
+    ForecastsModule,
   ],
   controllers: [],
   providers: [
